@@ -13,19 +13,18 @@ defmodule FileShredder.Fragmentor do
 
   """
 
-  def lazy_chunk do
+  def lazy_split do
     fn
-      {{val,  n}, idx}, [] when idx+1 < n ->
+      {{val, idx}, n}, [] when idx+1 < n ->
         {:cont, {val,idx}, []}
-      {{val, _n}, idx}, [] ->
+      {{val, idx}, _n}, [] ->
         {:cont, {val, idx}}
-      {{val, _n}, _idx}, acc ->
-        {h, h_idx} = acc
-        {:cont, {h <> val, h_idx}}
+      {{val, _idx}, _n}, {tail, t_idx} ->
+        {:cont, {tail <> val, t_idx}}
     end
   end
 
-  def lazy_clean do
+  def lazy_cleanup do
     fn
       [] ->  {:cont, []}
       acc -> {:cont, acc, []}
@@ -38,9 +37,9 @@ defmodule FileShredder.Fragmentor do
 
     file_path
     |> File.stream!([], chunk_size)
-    |> Stream.map(&{ &1, n }) # give all chunks a reference to n
     |> Stream.with_index()    # add sequence IDs
-    |> Stream.chunk_while([], lazy_chunk(), lazy_clean())
+    |> Stream.map(&{ &1, n }) # give all chunks a reference to n
+    |> Stream.chunk_while([], lazy_split(), lazy_cleanup())
     |> Enum.to_list()
 
     #  filebytes -> filebytes
