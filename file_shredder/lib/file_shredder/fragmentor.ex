@@ -12,54 +12,36 @@ defmodule FileShredder.Fragmentor do
       :world
 
   """
-  defp merge_rem(chunks, n, n),  do: chunks
-  defp merge_rem(chunks, k, n) do
-    [last, prev | rest] = Enum.reverse(chunks)
-    Enum.reverse([prev <> last | rest] )
+
+  def lazy_chunk do
+    fn
+      {{val,  n}, idx}, [] when idx+1 < n ->
+        {:cont, {val,idx}, []}
+      {{val, _n}, idx}, [] ->
+        {:cont, {val, idx}}
+      {{val, _n}, _idx}, acc ->
+        {h, h_idx} = acc
+        {:cont, {h <> val, h_idx}}
+    end
   end
 
+  def lazy_clean do
+    fn
+      [] ->  {:cont, []}
+      acc -> {:cont, acc, []}
+    end
+  end
 
-  def fragment(file_path, n, password) do
+  def fragment(file_path, n, _password) do
     %{ size: file_size } = File.stat! file_path
     chunk_size = Integer.floor_div(file_size, n)
 
-    chunk_fun = fn item, acc ->
-      { {val, n}, idx } = item
-      IO.inspect idx
-      if idx < n - 1 do
-        {:cont, Enum.reverse([val | acc]), []}
-      else
-        merge = fn 
-          [] -> {:cont, [val | acc]}
-          acc -> 
-            [h | t] = Enum.reverse(acc)
-            {:cont, [first <> val | rest]}        
-        merge(acc)
-        end
-      end
-    end
-
-    after_fun = fn
-      [] -> {:cont, []}
-      acc -> {:cont, Enum.reverse(acc), []}
-    end
-
     file_path
     |> File.stream!([], chunk_size)
-    |> Stream.map(fn chunk -> {chunk, n} end)
-    |> Stream.with_index()
-    |> Stream.chunk_while([], chunk_fun, after_fun)
+    |> Stream.map(&{ &1, n }) # give all chunks a reference to n
+    |> Stream.with_index()    # add sequence IDs
+    |> Stream.chunk_while([], lazy_chunk(), lazy_clean())
     |> Enum.to_list()
-    
-    #|> Enum.to_list
-    #|> merge_rem(length(chunks), n)
-
-    
-    
-    #hashkey = gen_key(password)
-    #chunks = File.stream!(file_path, [], chunk_size) |> Enum.to_list
-    #chunks
-    #  |> merge_rem(length(chunks), n)
 
     #  filebytes -> filebytes
     # split into chunks (+ persist seqIDs)
