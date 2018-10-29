@@ -12,7 +12,7 @@ defmodule FileShredder.Reassembler do
       :world
 
   """
-  def hello do
-    :world
+  def reassemble(dir, password) do
+    "called reassemble"
   end
 end

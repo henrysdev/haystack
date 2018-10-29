@@ -12,7 +12,8 @@ defmodule FileShredder.Fragmentor do
       :world
 
   """
-  def hello do
-    :world
+  def fragment(file, n, password) do
+    "called fragment"
   end
+
 end

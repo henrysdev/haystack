@@ -12,7 +12,8 @@ defmodule FileShredder do
       :world
 
   """
-  def hello do
-    :world
-  end
+  defdelegate fragment(file, n, password), to: FileShredder.Fragmentor
+
+  defdelegate reassemble(dir, password), to:  FileShredder.Reassembler
+
 end
