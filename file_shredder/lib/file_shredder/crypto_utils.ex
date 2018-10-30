@@ -18,7 +18,7 @@ defmodule FileShredder.CryptoUtils do
     @aes_block_size 16
 
     def encrypt(data, key) do
-      key = pad(key, 16)
+      key = "AAAAAAAAAAAAAAAA" #pad(key, 32)
       :crypto.block_encrypt(:aes_cbc128, key, @zero_iv, pad(data, @aes_block_size))
     end
 
@@ -28,11 +28,11 @@ defmodule FileShredder.CryptoUtils do
     end
 
     def gen_key(password) do
-      password
+      :crypto.hash(:sha256, password) |> Base.encode64
     end
 
-    def gen_hmac(password, seq_id) do
-      "_"
+    def gen_hmac(key, seq_id) do
+      :crypto.hash(:sha256, key <> <<seq_id>>) |> to_string
     end
 
 end

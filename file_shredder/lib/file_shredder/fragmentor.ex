@@ -13,7 +13,8 @@ defmodule FileShredder.Fragmentor do
 
   """
 
-  # high-order functions for fragment partitioning
+  # high-order function for generating an
+  # anonymous function for fragment partitioning
   defp lazy_chunking(n) do
     fn
       {val, idx}, [] when idx+1 < n ->
@@ -56,12 +57,12 @@ defmodule FileShredder.Fragmentor do
     {FileShredder.CryptoUtils.encrypt(chunk, hashkey), seq_id}
   end
   
-  defp add_hmac({chunk, seq_id}, password) do
-    {chunk <> FileShredder.CryptoUtils.gen_hmac(password, seq_id), seq_id}
+  defp add_hmac(chunk, hashkey, seq_id) do
+    {chunk <> FileShredder.CryptoUtils.gen_hmac(hashkey, seq_id), seq_id}
   end
 
   defp write_out({fragment, _seq_id}) do
-    {:ok, file} = File.open "debug/out/#{:rand.uniform(160)}.frg", [:write]
+    {:ok, file} = File.open "debug/out/#{:rand.uniform(999)}.frg", [:write]
     IO.binwrite file, fragment
     File.close file
   end
@@ -80,13 +81,13 @@ defmodule FileShredder.Fragmentor do
     hashkey = FileShredder.CryptoUtils.gen_key(password)
     frags = file_path
     |> File.stream!([], chunk_size)
-    |> Stream.with_index()
-    |> Stream.chunk_while([], lazy_chunking(n), lazy_cleanup())
+    |> Stream.with_index() # add sequence IDs
+    |> Stream.chunk_while([], lazy_chunking(n), lazy_cleanup()) # ensure exactly n fragments
+    # vvv entirely parallelizable vvv
     #pmap(frags, 2, fn frag -> work(frag, password, hashkey) end)
-    # parallelizable
-    |> Stream.map(fn frag -> add_encr(frag, hashkey) end)
-    |> Stream.map(fn frag -> add_hmac(frag, password) end)
-    |> Stream.each(fn chunk -> write_out(chunk) end)
+    |> Stream.map(fn frag -> add_encr(frag, hashkey) end) # add encryption
+    |> Stream.map(fn {frag, seq_id} -> add_hmac(frag, hashkey, seq_id) end) # add hmac
+    |> Stream.each(fn chunk -> write_out(chunk) end) # write out
     |> Enum.to_list()
   end
 
