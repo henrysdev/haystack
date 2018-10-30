@@ -20,7 +20,8 @@ erl_crash.dump
 *.ez
 
 # Ignore debug/testing directory
-/debug_out/
+/debug/
+
 
 # Ignore package tarball (built via "mix hex.build").
 file_shredder-*.tar

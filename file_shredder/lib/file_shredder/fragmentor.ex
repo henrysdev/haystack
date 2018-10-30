@@ -31,6 +31,27 @@ defmodule FileShredder.Fragmentor do
     end
   end
 
+    
+  defp spawn_worker(chunk_of_work, function) do
+    Task.async(fn -> Enum.map(chunk_of_work, function) end)
+  end
+
+  defp join_worker(chunk_of_work) do
+    Task.await(chunk_of_work)
+  end
+
+  def pmap(collection, process_count, function) do
+    coll_size  = Enum.count(collection)
+    chunk_size = Integer.floor_div(coll_size, process_count)
+    IO.inspect collection
+    collection
+      |> Enum.chunk_every(chunk_size)
+      |> Enum.map(&(spawn_worker(&1, function)))
+      |> Enum.map(&(join_worker(&1)))
+      |> Enum.concat()
+  end
+
+
   ################################
   # TODO: Abstract away into a Crypto Module
   defp gen_key(password) do
@@ -42,7 +63,7 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp gen_hmac(password, seq_id) do
-    "123456789"
+    "_"
   end
   ################################
 
@@ -55,9 +76,16 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp write_out({fragment, _seq_id}) do
-    {:ok, file} = File.open "debug_out/#{:rand.uniform(16)}.frg", [:write]
+    {:ok, file} = File.open "debug/out/#{:rand.uniform(160)}.frg", [:write]
     IO.binwrite file, fragment
     File.close file
+  end
+
+  defp work(fragment, password, hashkey) do
+    fragment
+    |> add_encr(hashkey)
+    |> add_hmac(password)
+    |> write_out()
   end
 
 
@@ -65,23 +93,19 @@ defmodule FileShredder.Fragmentor do
     %{ size: file_size } = File.stat! file_path
     chunk_size = Integer.floor_div(file_size, n)
     hashkey = gen_key(password)
-    file_path
+    frags = file_path
     |> File.stream!([], chunk_size)
     |> Stream.with_index()    # add sequence IDs
     # possibly not necessary to give n to all elements if we precalculate if its an extra chunk or not...
     |> Stream.map(fn chunk -> {chunk, n} end) # give all chunks a reference to n
     |> Stream.chunk_while([], lazy_chunking(), lazy_cleanup())
-    # parallelizable
-    |> Stream.map(fn frag -> add_encr(frag, hashkey) end)
-    |> Stream.map(fn frag -> add_hmac(frag, password) end)
-    |> Stream.each(fn chunk -> write_out(chunk) end)
-    |> Enum.to_list()
 
-    #  filebytes -> filebytes
-    # split into chunks (+ persist seqIDs)
-    #  filebytes -> coll[{filebytes, seqID}]
-    # encrypt chunks
-    #  coll[{filebytes, seqID}] -> coll[{filebytes, seqID}]
+    pmap(frags, 15, fn frag -> work(frag, password, hashkey) end)
+    # parallelizable
+    # |> Stream.map(fn frag -> add_encr(frag, hashkey) end)
+    # |> Stream.map(fn frag -> add_hmac(frag, password) end)
+    # |> Stream.each(fn chunk -> write_out(chunk) end)
+    # |> Enum.to_list()
   end
 
 end
