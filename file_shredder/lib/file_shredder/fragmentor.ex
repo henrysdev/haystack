@@ -13,20 +13,20 @@ defmodule FileShredder.Fragmentor do
 
   """
 
-  defp lazy_chunking do
+  defp lazy_chunking(n) do
     fn
-      {{val, idx}, n}, [] when idx+1 < n ->
-        {:cont, {val,idx}, []}
-      {{val, idx}, _n}, [] ->
+      {val, idx}, [] when idx+1 < n ->
+        {:cont, {val, idx}, []}
+      {val, idx}, [] ->
         {:cont, {val, idx}}
-      {{val, _idx}, _n}, {tail, t_idx} ->
+      {val, idx}, {tail, t_idx} ->
         {:cont, {tail <> val, t_idx}}
     end
   end
 
   defp lazy_cleanup do
     fn
-      [] ->  {:cont, []}
+      []  -> {:cont, []}
       acc -> {:cont, acc, []}
     end
   end
@@ -95,12 +95,11 @@ defmodule FileShredder.Fragmentor do
     hashkey = gen_key(password)
     frags = file_path
     |> File.stream!([], chunk_size)
-    |> Stream.with_index()    # add sequence IDs
-    # possibly not necessary to give n to all elements if we precalculate if its an extra chunk or not...
-    |> Stream.map(fn chunk -> {chunk, n} end) # give all chunks a reference to n
-    |> Stream.chunk_while([], lazy_chunking(), lazy_cleanup())
+    |> Stream.with_index()
+    |> Stream.chunk_while([], lazy_chunking(n), lazy_cleanup())
+    |> Enum.to_list()
 
-    pmap(frags, 15, fn frag -> work(frag, password, hashkey) end)
+    #pmap(frags, 2, fn frag -> work(frag, password, hashkey) end)
     # parallelizable
     # |> Stream.map(fn frag -> add_encr(frag, hashkey) end)
     # |> Stream.map(fn frag -> add_hmac(frag, password) end)
