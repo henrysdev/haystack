@@ -1,6 +1,11 @@
 defmodule FileShredder.CryptoUtils do
-    
-    # These will need to be in a module of course
+
+    # erlang crypto code adapted from: https://stackoverflow.com/a/37660251
+    # TODO: Implement legitimate init vector!
+    @aes_block_size 16
+    @key_size 24
+    @zero_iv to_string(:string.chars(0, 16))
+
     def pad(data, block_size) do
       to_add = block_size - rem(byte_size(data), block_size)
       data <> to_string(:string.chars(to_add, to_add))
@@ -11,15 +16,8 @@ defmodule FileShredder.CryptoUtils do
       :binary.part(data, 0, byte_size(data) - to_remove)
     end
 
-    # BAD, don't do this!
-    # This is just to reproduce your code, where you are not using 
-    # an initialisation vector.
-    @zero_iv to_string(:string.chars(0, 16))
-    @aes_block_size 16
-
     def encrypt(data, key) do
-      key = "AAAAAAAAAAAAAAAA" #pad(key, 32)
-      :crypto.block_encrypt(:aes_cbc128, key, @zero_iv, pad(data, @aes_block_size))
+      :crypto.block_encrypt(:aes_cbc, key, @zero_iv, pad(data, @aes_block_size))
     end
 
     def decrypt(data, key) do
@@ -28,7 +26,7 @@ defmodule FileShredder.CryptoUtils do
     end
 
     def gen_key(password) do
-      :crypto.hash(:sha256, password) |> Base.encode64
+      String.slice(:crypto.hash(:sha256, password), 0..@key_size-1)
     end
 
     def gen_hmac(key, seq_id) do
