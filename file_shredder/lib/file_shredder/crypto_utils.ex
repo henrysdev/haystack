@@ -1,10 +1,9 @@
 defmodule FileShredder.CryptoUtils do
 
     # erlang crypto code adapted from: https://stackoverflow.com/a/37660251
-    # TODO: Implement legitimate init vector!
     @aes_block_size 16
-    @key_size 24
-    @zero_iv to_string(:string.chars(0, 16))
+    @key_size 32
+    @zero_iv to_string(:string.chars(0, 16)) # TODO: Implement legitimate init vector!
 
     def pad(data, block_size) do
       to_add = block_size - rem(byte_size(data), block_size)
