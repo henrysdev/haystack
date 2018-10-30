@@ -51,28 +51,12 @@ defmodule FileShredder.Fragmentor do
       |> Enum.concat()
   end
 
-
-  ################################
-  # TODO: Abstract away into a Crypto Module
-  defp gen_key(password) do
-    password
-  end
-
-  defp encrypt(chunk, _hashkey) do
-    chunk
-  end
-
-  defp gen_hmac(password, seq_id) do
-    "_"
-  end
-  ################################
-
   defp add_encr({chunk, seq_id}, hashkey) do
-    {encrypt(chunk, hashkey), seq_id}
+    {FileShredder.CryptoUtils.encrypt(chunk, hashkey), seq_id}
   end
   
   defp add_hmac({chunk, seq_id}, password) do
-    {chunk <> gen_hmac(password, seq_id), seq_id}
+    {chunk <> FileShredder.CryptoUtils.gen_hmac(password, seq_id), seq_id}
   end
 
   defp write_out({fragment, _seq_id}) do
@@ -92,7 +76,7 @@ defmodule FileShredder.Fragmentor do
   def fragment(file_path, n, password) do
     %{ size: file_size } = File.stat! file_path
     chunk_size = Integer.floor_div(file_size, n)
-    hashkey = gen_key(password)
+    hashkey = FileShredder.CryptoUtils.gen_key(password)
     frags = file_path
     |> File.stream!([], chunk_size)
     |> Stream.with_index()
