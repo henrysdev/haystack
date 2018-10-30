@@ -18,8 +18,8 @@ defmodule FileShredder.CryptoUtils do
     @aes_block_size 16
 
     def encrypt(data, key) do
+      key = to_string(:string.chars(0,16))
       :crypto.block_encrypt(:aes_cbc128, key, @zero_iv, pad(data, @aes_block_size))
-      data
     end
 
     def decrypt(data, key) do
