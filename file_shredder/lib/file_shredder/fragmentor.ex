@@ -16,19 +16,9 @@ defmodule FileShredder.Fragmentor do
   # high-order functions for generating an
   # anonymous function for fragment partitioning
 
-  defp lazy_chunking(n) do
-    fn
-      {val, idx}, [] when idx+1 < n ->
-        {:cont, {val, idx}, []}
-      {val, idx}, [] ->
-        {:cont, {val, idx}}
-      {val, idx}, {tail, t_idx} ->
-        {:cont, {tail <> val, t_idx}}
-    end
-  end
-
-  defp lazy_cleanup do
-    fn acc -> {:cont, acc, []} end
+  defp lazy_pad({chunk, 0}), do: {chunk, 0}
+  defp lazy_pad({chunk, p}) do
+    { chunk <> to_string(:string.chars(0, p)), p }
   end
 
   # def fragment(file_path, n, password) do
@@ -42,17 +32,31 @@ defmodule FileShredder.Fragmentor do
   #   |> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
   # end
 
-  # def fragment(file_path, n, password) do
-  #   hashkey = Utils.Crypto.gen_key(password)
-  #   %{ size: file_size } = File.stat! file_path
+  def fragment(file_path, n, password) do
+    hashkey = Utils.Crypto.gen_key(password)
+    %{ size: file_size } = File.stat! file_path
 
-  #   chunk_size = ceil(file_size/n)
-  #   padding = (n * chunk_size) - file_size
+    chunk_size = Float.ceil(file_size/n) |> trunc()
+    padding = (n * chunk_size) - file_size
+    partial_pad = rem(padding, chunk_size)
+    dummy_count = div((padding - partial_pad), chunk_size)
 
-  #   file_path
-  #   |> Stream.repeatedly(&Stream.concat(&1,[0]))
-  #   |> Enum.to_list
-  # end
+    IO.inspect n, label: "n"
+    IO.inspect file_size, label: "file_size"
+    IO.inspect chunk_size, label: "chunk_size"
+    IO.inspect padding, label: "padding"
+    IO.inspect partial_pad, label: "partial_pad"
+    IO.inspect dummy_count, label: "dummy_count"
+
+    file_path
+    |> File.stream!([], chunk_size)
+    |> Stream.map(&{&1, chunk_size - String.length(&1)})
+    |> Stream.map(&(lazy_pad(&1)))
+    #|> Stream.concat(Stream.take(n-1), partial_pad(Stream.take(-1)))
+    #|> Stream.map() # fill in bytes of last elem
+    #|> Stream.concat() # concat new dummy pad frags
+    |> Enum.to_list()
+  end
 
   defp finish_frag({chunk, seq_id}, hashkey) do
     { chunk, seq_id }
