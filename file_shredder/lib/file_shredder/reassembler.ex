@@ -12,7 +12,9 @@ defmodule FileShredder.Reassembler do
       :world
 
   """
-  def reassemble(dir, password) do
-    "called reassemble"
+  def reassemble(dirpath, password) do
+    IO.puts("reassemble")
+    hmac_paths = Path.wildcard(dirpath)
   end
+
 end

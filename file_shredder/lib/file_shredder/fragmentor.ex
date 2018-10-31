@@ -34,12 +34,12 @@ defmodule FileShredder.Fragmentor do
   def fragment(file_path, n, password) do
     %{ size: file_size } = File.stat! file_path
     chunk_size = Integer.floor_div(file_size, n)
-    hashkey = FileShredder.CryptoUtils.gen_key(password)
+    hashkey = Utils.Crypto.gen_key(password)
     file_path
     |> File.stream!([], chunk_size)
     |> Stream.with_index()
     |> Stream.chunk_while([], lazy_chunking(n), lazy_cleanup())
-    |> FileShredder.ParallelUtils.pmap(&finish_frag(&1, hashkey))
+    |> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
   end
 
   defp finish_frag({chunk, seq_id}, hashkey) do
@@ -50,11 +50,11 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp add_encr({chunk, seq_id}, hashkey) do
-    { FileShredder.CryptoUtils.encrypt(chunk, hashkey), seq_id }
+    { Utils.Crypto.encrypt(chunk, hashkey), seq_id }
   end
   
   defp add_hmac({chunk, seq_id}, hashkey) do
-    chunk <> FileShredder.CryptoUtils.gen_hmac(hashkey, seq_id)
+    chunk <> Utils.Crypto.gen_hmac(hashkey, seq_id)
   end
 
   defp write_out(fragment) do
