@@ -31,16 +31,28 @@ defmodule FileShredder.Fragmentor do
     fn acc -> {:cont, acc, []} end
   end
 
-  def fragment(file_path, n, password) do
-    %{ size: file_size } = File.stat! file_path
-    chunk_size = Integer.floor_div(file_size, n)
-    hashkey = Utils.Crypto.gen_key(password)
-    file_path
-    |> File.stream!([], chunk_size)
-    |> Stream.with_index()
-    |> Stream.chunk_while([], lazy_chunking(n), lazy_cleanup())
-    |> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
-  end
+  # def fragment(file_path, n, password) do
+  #   %{ size: file_size } = File.stat! file_path
+  #   chunk_size = Integer.floor_div(file_size, n)
+  #   hashkey = Utils.Crypto.gen_key(password)
+  #   file_path
+  #   |> File.stream!([], chunk_size)
+  #   |> Stream.with_index()
+  #   |> Stream.chunk_while([], lazy_chunking(n), lazy_cleanup())
+  #   |> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
+  # end
+
+  # def fragment(file_path, n, password) do
+  #   hashkey = Utils.Crypto.gen_key(password)
+  #   %{ size: file_size } = File.stat! file_path
+
+  #   chunk_size = ceil(file_size/n)
+  #   padding = (n * chunk_size) - file_size
+
+  #   file_path
+  #   |> Stream.repeatedly(&Stream.concat(&1,[0]))
+  #   |> Enum.to_list
+  # end
 
   defp finish_frag({chunk, seq_id}, hashkey) do
     { chunk, seq_id }

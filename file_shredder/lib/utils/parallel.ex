@@ -1,4 +1,4 @@
-defmodule FileShredder.ParallelUtils do
+defmodule Utils.Parallel do
   
   def pmap(collection, func) do
     IO.inspect collection
