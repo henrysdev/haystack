@@ -40,15 +40,13 @@ defmodule FileShredder.Fragmentor do
     partial_pad = rem(padding, chunk_size)
     dummy_count = div((padding - partial_pad), chunk_size)
 
-    IO.inspect dummy_count
-
     file_path
     |> File.stream!([], chunk_size)
     |> Stream.map(&(pad_frag(&1, chunk_size))) # add pad_amt
     |> Stream.concat(gen_dummies(dummy_count, chunk_size)) # add dummy frags
     |> Stream.with_index() # add sequence IDs
-    |> Enum.map(&finish_frag(&1, hashkey))
-    #|> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
+    #|> Enum.map(&finish_frag(&1, hashkey))
+    |> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
 
   end
 
@@ -81,16 +79,15 @@ defmodule FileShredder.Fragmentor do
 
   defp serialize({ payload, pad_amt, seq_hash, hmac }) do
     Poison.encode!(%{
-      :payload  => payload,
-      :pad_amt  => pad_amt,
-      :seq_hash => seq_hash,
-      :hmac     => hmac,
+      "payload"  => payload,
+      "pad_amt"  => pad_amt,
+      "seq_hash" => seq_hash,
+      "hmac"     => hmac,
     })
   end
 
   defp write_out(fragment) do
-    IO.inspect fragment
-    { :ok, file } = File.open "debug/out/#{:rand.uniform(500)}.frg", [:write]
+    { :ok, file } = File.open "debug/out/#{:rand.uniform(5)}.frg", [:write]
     IO.binwrite file, fragment
     File.close file
   end

@@ -13,8 +13,11 @@ defmodule FileShredder.Reassembler do
 
   """
   def reassemble(dirpath, password) do
-    IO.puts("reassemble")
     hmac_paths = Path.wildcard(dirpath)
+  end
+
+  defp deserialize(fragment, password) do
+    Poison.Parser.parse!(fragment)
   end
 
 end
