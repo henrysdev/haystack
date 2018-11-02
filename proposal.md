@@ -1,11 +1,27 @@
 Name: ____________           ID:   ____________
 
 ## Proposed Project
+My project will be a security application for protecting sensitive files 
+through the use of fragmentation and (in practice) distribution of chunks 
+of the file. The general idea is that it has two key functions:
 
-> Replace this paragraph with the description of what your project
-> will do. Tell me what kind of interface it will have, and roughly
-> how it will work. I don't need more than three or four sentences,
-> unless you feel compelled to write more.
+    - fragment(password, n)
+    - reassemble(dir, password)
+
+Fragment breaks the file into n parts, pads them to be equal size, 
+encrypts each, generates an integrity check (an HMAC, in this case), 
+serializes it with something like JSON, and writes it to disk.
+
+Reassembly takes a directory path, finds all fragments in that directory, 
+then verifies, decrypts, and reappends them together to produce the 
+original file.
+
+Use-case wise, this would be a good tactic for distributing highly sensitive 
+information across a number of servers, as to minimize the risk of a file 
+being compromised.
+
+This project is based on a write-up I did last year (and previously implemented in 
+both Python and Java): http://henrysprojects.net/projects/file-frag-proto.html
 
 ## Outline Structure
 
