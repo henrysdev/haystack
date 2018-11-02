@@ -45,29 +45,34 @@ defmodule FileShredder.Fragmentor do
     file_path
     |> File.stream!([], chunk_size)
     |> Stream.map(&(pad_frag(&1, chunk_size))) # add pad_amt
-    |> Stream.concat(gen_dummies(dummy_count, chunk_size))
-    |> Stream.with_index() # add seq_id
-    |> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
+    |> Stream.concat(gen_dummies(dummy_count, chunk_size)) # add dummy frags
+    |> Stream.with_index() # add sequence IDs
+    # |> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
 
   end
 
-  defp finish_frag({ {chunk, seq_id}, pad}, hashkey) do
-    { chunk, seq_id, pad }
-    |> add_encr(hashkey)
-    |> add_hmac(hashkey)
+  defp finish_frag({{payload, pad_amt} seq_id}, hashkey) do
+    { payload, pad_amt }
+    |> encr_payload(hashkey)
+    |> encr_pad_amt(hashkey)
+    |> add_hmac(hashkey, seq_id)
     |> serialize()
     |> write_out()
   end
 
-  defp add_encr({chunk, seq_id, pad}, hashkey) do
-    { Utils.Crypto.encrypt(chunk, hashkey), seq_id, pad }
-  end
-  
-  defp add_hmac({chunk, seq_id, pad}, hashkey) do
-    { chunk, Utils.Crypto.gen_hmac(hashkey, seq_id), pad }
+  defp encr_payload({ payload, pad_amt }, hashkey) do
+    { Utils.Crypto.encrypt(payload, hashkey), pad_amt }
   end
 
-  defp serialize({chunk, hmac, pad}) do
+  defp encr_pad_amt({ payload, pad_amt }, hashkey) do
+    { payload, Utils.Crypto.encrypt(pad_amt, hashkey)}
+  end
+  
+  defp add_hmac({ payload, pad_amt }, hashkey, seq_id) do
+    { payload, pad_amt, Utils.Crypto.gen_hmac(hashkey, seq_id) }
+  end
+
+  defp serialize({chunk, hmac, pad_amt}) do
     # TODO bake pad_amt into encrypted payload (serialize twice...?)
     chunk <> hmac
   end
