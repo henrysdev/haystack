@@ -1,6 +1,7 @@
 Name: Henry Warren          ID: 44534169
 
 ## Proposed Project
+
 My project will be a security application for protecting sensitive files 
 through the use of fragmentation and (in practice) distribution of chunks 
 of the file. The general idea is that it has two key functions:
@@ -25,12 +26,18 @@ both Python and Java): http://henrysprojects.net/projects/file-frag-proto.html
 
 ## Outline Structure
 
-> Describe how you'll organize your code. What is the process and
-> supervision structure? If it uses a framework, how does it fit in. I
-> just need to understand the direction you plan to take. Again, three
-> or four sentences are probably enough.
+I plan to organize my code as follows:
+lib/
+    file_shredder/
+        fragmentor
+        reassembler
+    utils/
+        crypto
+        file
+        parallel
+    file_shredder (API)
 
-
-
-> replace all the ">" lines with your content, then push this to
-> github and issue a merge request.
+I am not using a framework. The only external dependency that I will 
+have is the Poison library for JSON (subject to change). I plan for 
+this project to take shape as a light-weight CLI application with just 
+2-3 commands (fragment, reassemble, help, etc).
