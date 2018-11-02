@@ -1,4 +1,4 @@
-Name: ____________           ID:   ____________
+Name: Henry Warren          ID: 44534169
 
 ## Proposed Project
 My project will be a security application for protecting sensitive files 
