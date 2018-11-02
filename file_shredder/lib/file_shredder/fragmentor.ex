@@ -47,15 +47,17 @@ defmodule FileShredder.Fragmentor do
     |> Stream.map(&(pad_frag(&1, chunk_size))) # add pad_amt
     |> Stream.concat(gen_dummies(dummy_count, chunk_size)) # add dummy frags
     |> Stream.with_index() # add sequence IDs
-    # |> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
+    |> Enum.map(&finish_frag(&1, hashkey))
+    #|> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
 
   end
 
-  defp finish_frag({{payload, pad_amt} seq_id}, hashkey) do
+  defp finish_frag({ { payload, pad_amt }, seq_id }, hashkey) do
     { payload, pad_amt }
     |> encr_payload(hashkey)
     |> encr_pad_amt(hashkey)
-    |> add_hmac(hashkey, seq_id)
+    |> add_seq_hash(hashkey, seq_id)
+    |> add_hmac(hashkey)
     |> serialize()
     |> write_out()
   end
@@ -65,20 +67,30 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp encr_pad_amt({ payload, pad_amt }, hashkey) do
-    { payload, Utils.Crypto.encrypt(pad_amt, hashkey)}
+    { payload, Utils.Crypto.encrypt(Integer.to_string(pad_amt), hashkey) }
   end
   
-  defp add_hmac({ payload, pad_amt }, hashkey, seq_id) do
-    { payload, pad_amt, Utils.Crypto.gen_hmac(hashkey, seq_id) }
+  defp add_seq_hash({ payload, pad_amt }, hashkey, seq_id) do
+    { payload, pad_amt, Utils.Crypto.gen_multi_hash([hashkey, seq_id]) }
   end
 
-  defp serialize({chunk, hmac, pad_amt}) do
-    # TODO bake pad_amt into encrypted payload (serialize twice...?)
-    chunk <> hmac
+  defp add_hmac({ payload, pad_amt, seq_hash }, hashkey) do
+    hmac = Utils.Crypto.gen_multi_hash([payload, pad_amt, seq_hash, hashkey])
+    { payload, pad_amt, seq_hash, hmac }
+  end
+
+  defp serialize({ payload, pad_amt, seq_hash, hmac }) do
+    Poison.encode!(%{
+      :payload  => payload,
+      :pad_amt  => pad_amt,
+      :seq_hash => seq_hash,
+      :hmac     => hmac,
+    })
   end
 
   defp write_out(fragment) do
-    { :ok, file } = File.open "debug/out/#{:rand.uniform(5)}.frg", [:write]
+    IO.inspect fragment
+    { :ok, file } = File.open "debug/out/#{:rand.uniform(500)}.frg", [:write]
     IO.binwrite file, fragment
     File.close file
   end

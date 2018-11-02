@@ -17,11 +17,13 @@ defmodule Utils.Crypto do
 
   def encrypt(data, key) do
     :crypto.block_encrypt(:aes_cbc, key, @zero_iv, pad(data, @aes_block_size))
+    |> Base.encode64
   end
 
   def decrypt(data, key) do
     padded = :crypto.block_decrypt(:aes_cbc128, key, @zero_iv, data)
     unpad(padded)
+    |> Base.decode64
   end
 
   def gen_key(password) do
@@ -30,6 +32,12 @@ defmodule Utils.Crypto do
 
   def gen_hmac(key, seq_id) do
     :crypto.hash(:sha256, key <> <<seq_id>>) |> to_string
+    |> Base.encode64
+  end
+
+  def gen_multi_hash(parts) do
+    :crypto.hash(:sha256, Enum.join(parts)) |> to_string
+    |> Base.encode64
   end
 
 end
