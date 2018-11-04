@@ -30,8 +30,6 @@ defmodule FileShredder.Fragmentor do
     for _ <- 0..dummy_count, do: dummy(chunk_size)
   end
 
-  defp add_file_size
-
   def fragment(file_path, n, password) do
     hashkey = Utils.Crypto.gen_key(password)
     file_name = Path.basename(file_path)
