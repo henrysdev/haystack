@@ -42,33 +42,66 @@ defmodule FileShredder.Reassembler do
     |> Stream.filter(&valid_hmac?(&1, hashkey)) # verify integrity
     |> Enum.reduce(%{}, &gen_seq_map(&1, &2)) # reduce into sequence map
 
+    n = map_size(seq_map)
+
     init_frag = Map.get(seq_map, gen_seq_hash(0, hashkey))
-    file_name = Utils.Crypto.decrypt(Map.get(init_frag, "file_name"))
-    file_size = Utils.Crypto.decrypt(Map.get(init_frag, "file_size"))
+    |> decr_field("file_name", hashkey)
+    |> decr_field("file_size", hashkey)
+    file_name = Map.get(init_frag, "file_name")
+    { file_size, _ } = Map.get(init_frag, "file_size") |> Integer.parse()
+    Utils.File.create(file_name, file_size)
+
     chunk_size = Float.ceil(file_size/n) |> trunc()
-    padding = (n * chunk_size) - file_size
-    partial_pad = rem(padding, chunk_size)
-    dummy_count = div((padding - partial_pad), chunk_size)
-    Utils.File.create(alloc_buffer_file(file_name, file_size, :os.type())
-    
-    [0..map_size(seq_map)-1]
+
+    0..(map_size(seq_map)-1)
+    |> Enum.to_list()
     |> Stream.map(&{&1, Map.get(seq_map, gen_seq_hash(&1, hashkey))})
-    |> Stream.map(&reform_frag(&1))
+    |> Utils.Parallel.pmap(&finish_reassem(&1, hashkey, file_name, chunk_size))
 
+  end
 
-    #next_seq = gen_seq_hash(0, hashkey)
-    #Map.has_key?(seq_map, next_seq)
-    #init_frag = Map.get(seq_map, )
-
-    #|> IO.inspect
-    #|> Stream.map(&integrity_check(&1))
-    #|> Enum.to_list()
+  defp finish_reassem({ seq_id, fragment}, hashkey, file_name, chunk_size) do
+    { seq_id, fragment }
+    |> reform_frag()
+    |> IO.inspect
+    |> decr_field("payload", hashkey)
+    |> decr_field("pad_amt", hashkey)
+    |> unpad_payload()
+    |> write_payload(file_name, chunk_size)
   end
 
   defp gen_seq_hash(seq_id, hashkey) do
     seq_hash = Utils.Crypto.gen_multi_hash([hashkey, seq_id])
   end
 
-  defp reform_frag({seq_id, %{}})
+  defp decr_field(fragment, field, hashkey) do
+    cipherdata = Map.get(fragment, field)
+    plaindata = Utils.Crypto.decrypt(cipherdata, hashkey)
+    Map.put(fragment, field, plaindata)
+  end
+
+  defp reform_frag({seq_id, fragment}) do
+    %{ 
+      "seq_id"  => seq_id, 
+      "payload" => Map.get(fragment, "payload"), 
+      "pad_amt" => Map.get(fragment, "pad_amt")
+    }
+  end
+
+  defp unpad_payload(fragment) do
+    { pad_amt, _ } = Map.get(fragment, "pad_amt") |> Integer.parse()
+    payload = Map.get(fragment, "payload")
+    pl_length = String.length(payload)
+    payload = String.slice(payload, 0..pl_length - pad_amt - 1)
+    Map.put(fragment, "payload", payload)
+  end
+
+  defp write_payload(fragment, file_name, chunk_size) do
+    payload  = Map.get(fragment, "payload")
+    seek_pos = Map.get(fragment, "seq_id") * chunk_size
+    out_file = File.open!(file_name, [:write, :read])
+    {:ok, pos} = :file.position(out_file, seek_pos)
+    :file.write(out_file, payload)
+  end
 
 end

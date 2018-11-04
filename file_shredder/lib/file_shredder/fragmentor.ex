@@ -92,7 +92,7 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp add_hmac({ payload, pad_amt, file_name, file_size, seq_hash }, hashkey) do
-    hmac = Utils.Crypto.gen_multi_hash([payload, pad_amt, file_size, seq_hash, hashkey])
+    hmac = Utils.Crypto.gen_multi_hash([payload, pad_amt, file_name, file_size, seq_hash, hashkey])
     { payload, pad_amt, file_name, file_size, seq_hash, hmac }
   end
 

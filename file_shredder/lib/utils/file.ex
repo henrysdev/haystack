@@ -11,8 +11,8 @@ defmodule Utils.File do
 
   def create(file_name, file_size) do
     case :os.type() do
-      {:unix, :linux}  -> System.cmd("fallocate", ["-l", file_size, file_name])
-      {:unix, :darwin} -> System.cmd("mkfile", ["-n", file_size, file_name])
+      {:unix, :linux}  -> System.cmd("fallocate", ["-l", file_size |> Integer.to_string(), file_name])
+      {:unix, :darwin} -> System.cmd("mkfile", ["-n", file_size |> Integer.to_string(), file_name])
     end
   end
 

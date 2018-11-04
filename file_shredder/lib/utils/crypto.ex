@@ -21,18 +21,13 @@ defmodule Utils.Crypto do
   end
 
   def decrypt(data, key) do
-    padded = :crypto.block_decrypt(:aes_cbc128, key, @zero_iv, data)
+    { :ok, data } = Base.decode64(data)
+    padded = :crypto.block_decrypt(:aes_cbc, key, @zero_iv, data)
     unpad(padded)
-    |> Base.decode64
   end
 
   def gen_key(password) do
-    :crypto.hash(:sha256, password) |> String.slice(0..@key_size-1)
-  end
-
-  def gen_hmac(key, seq_id) do
-    :crypto.hash(:sha256, key <> <<seq_id>>) |> to_string
-    |> Base.encode64
+    key = :crypto.hash(:sha256, password) |> String.slice(0..@key_size-1)
   end
 
   def gen_multi_hash(parts) do
