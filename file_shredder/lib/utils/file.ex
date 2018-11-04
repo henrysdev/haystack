@@ -9,4 +9,11 @@ defmodule Utils.File do
     File.open!(fpath, [:read, :binary])
   end
 
+  def create(file_name, file_size) do
+    case :os.type() do
+      {:unix, :linux}  -> System.cmd("fallocate", ["-l", file_size, file_name])
+      {:unix, :darwin} -> System.cmd("mkfile", ["-n", file_size, file_name])
+    end
+  end
+
 end
