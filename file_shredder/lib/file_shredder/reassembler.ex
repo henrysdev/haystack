@@ -40,12 +40,6 @@ defmodule FileShredder.Reassembler do
     |> Enum.to_list()
     |> Stream.filter(&(n - dummy_count > &1))
     |> Stream.map(&{&1, Map.get(seq_map, gen_seq_hash(&1, hashkey))})
-    # DEBUG CLAUSE TO CATCH REJECTED FRAGMENTS
-    |> Enum.map(fn
-                {seq_id, nil} -> IO.inspect {seq_id, gen_seq_hash(seq_id, hashkey)} 
-                {seq_id, b} -> {seq_id, b} end)
-    |> Enum.filter(fn {seq_id, fragment} -> is_map(fragment) end)
-    #|> Enum.map(&finish_reassem(&1, hashkey, file_name, chunk_size))
     |> Utils.Parallel.pmap(&finish_reassem(&1, hashkey, file_name, chunk_size))
 
     Utils.File.clear_dir(dirpath)
@@ -79,12 +73,12 @@ defmodule FileShredder.Reassembler do
     Map.get(fragment, "hmac") == correct_hmac
   end
 
-  defp gen_seq_map({ fragment, hmac }, acc) do
+  defp gen_seq_map({ fragment, _hmac }, acc) do
     Map.put(acc, Map.get(fragment, "seq_hash"), fragment)
   end
 
   defp gen_seq_hash(seq_id, hashkey) do
-    seq_hash = Utils.Crypto.gen_multi_hash([hashkey, seq_id])
+    Utils.Crypto.gen_multi_hash([hashkey, seq_id])
   end
 
   defp finish_reassem({ seq_id, fragment}, hashkey, file_name, chunk_size) do
@@ -104,10 +98,10 @@ defmodule FileShredder.Reassembler do
     }
   end
 
-  defp decr_field(fragment, field, hashkey) do
-    cipherdata = Map.get(fragment, field)
+  defp decr_field(map, field, hashkey) do
+    cipherdata = Map.get(map, field)
     plaindata = Utils.Crypto.decrypt(cipherdata, hashkey)
-    Map.put(fragment, field, plaindata)
+    Map.put(map, field, plaindata)
   end
 
   defp unpad_payload(fragment) do
@@ -122,7 +116,7 @@ defmodule FileShredder.Reassembler do
     payload  = Map.get(fragment, "payload")
     seek_pos = Map.get(fragment, "seq_id") * chunk_size
     out_file = File.open!(file_name, [:write, :read])
-    {:ok, pos} = :file.position(out_file, seek_pos)
+    {:ok, _pos} = :file.position(out_file, seek_pos)
     :file.write(out_file, payload)
   end
 

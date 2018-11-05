@@ -41,7 +41,6 @@ defmodule FileShredder.Fragmentor do
       padding = (n * chunk_size) - file_size
       partial_pad = rem(padding, chunk_size)
       dummy_count = div((padding - partial_pad), chunk_size)
-      non_dummy_count = n - dummy_count
 
       frag_paths = file_path
       |> File.stream!([], chunk_size)
@@ -50,6 +49,7 @@ defmodule FileShredder.Fragmentor do
       |> Stream.map(&Tuple.append(&1, file_name)) # add file_size
       |> Stream.map(&Tuple.append(&1, file_size)) # add file_size
       |> Stream.with_index() # add sequence IDs
+      #|> Enum.map(&finish_frag(&1, hashkey))
       |> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
       |> Enum.to_list()
 
@@ -60,59 +60,56 @@ defmodule FileShredder.Fragmentor do
 
   defp finish_frag({ { payload, pad_amt, file_name, file_size }, seq_id }, hashkey) do
     { payload, pad_amt, file_name, file_size }
-    |> encr_payload(hashkey)
-    |> encr_pad_amt(hashkey)
-    |> encr_file_name(hashkey)
-    |> encr_file_size(hashkey)
+    |> form_frag()
+    |> encr_field("payload", hashkey)
+    |> encr_field("pad_amt", hashkey)
+    |> encr_field("file_name", hashkey)
+    |> encr_field("file_size", hashkey)
     |> add_seq_hash(hashkey, seq_id)
     |> add_hmac(hashkey)
     |> serialize()
     |> write_out()
   end
 
-  defp encr_payload({ payload, pad_amt, file_name, file_size }, hashkey) do
-    payload = Utils.Crypto.encrypt(payload, hashkey)
-    { payload, pad_amt, file_name, file_size }
-  end
-
-  defp encr_pad_amt({ payload, pad_amt, file_name, file_size }, hashkey) do
-    pad_amt = Utils.Crypto.encrypt(Integer.to_string(pad_amt), hashkey)
-    { payload, pad_amt, file_name, file_size }
-  end
-
-   defp encr_file_name({ payload, pad_amt, file_name, file_size }, hashkey) do
-    file_name = Utils.Crypto.encrypt(file_name, hashkey)
-    { payload, pad_amt, file_name, file_size}
-  end
-  
-  defp encr_file_size({ payload, pad_amt, file_name, file_size }, hashkey) do
-    file_size = Utils.Crypto.encrypt(Integer.to_string(file_size), hashkey)
-    { payload, pad_amt, file_name, file_size}
-  end
-  
-  defp add_seq_hash({ payload, pad_amt, file_name, file_size }, hashkey, seq_id) do
-    seq_hash = Utils.Crypto.gen_multi_hash([hashkey, seq_id])
-    { payload, pad_amt, file_name, file_size, seq_hash }
-  end
-
-  defp add_hmac({ payload, pad_amt, file_name, file_size, seq_hash }, hashkey) do
-    hmac = Utils.Crypto.gen_multi_hash([payload, pad_amt, file_name, file_size, seq_hash, hashkey])
-    { payload, pad_amt, file_name, file_size, seq_hash, hmac }
-  end
-
-  defp serialize({ payload, pad_amt, file_name, file_size, seq_hash, hmac }) do
-    Poison.encode!(%{
+  defp form_frag({ payload, pad_amt, file_name, file_size }) do
+    %{
       "payload"   => payload,
-      "pad_amt"   => pad_amt,
+      "pad_amt"   => pad_amt |> Integer.to_string(),
       "file_name" => file_name,
-      "file_size" => file_size,
-      "seq_hash"  => seq_hash,
-      "hmac"      => hmac,
-    })
+      "file_size" => file_size |> Integer.to_string()
+    }
+  end
+  
+  defp encr_field(map, field, hashkey) do
+    plaindata = Map.get(map, field)
+    cipherdata = Utils.Crypto.encrypt(plaindata, hashkey)
+    Map.put(map, field, cipherdata)
+  end
+  
+  defp add_seq_hash(fragment, hashkey, seq_id) do
+    seq_hash = Utils.Crypto.gen_multi_hash([hashkey, seq_id])
+    Map.put(fragment, "seq_hash", seq_hash)
+  end
+
+  defp add_hmac(fragment, hashkey) do
+    hmac_parts = [
+      Map.get(fragment, "payload"),
+      Map.get(fragment, "pad_amt"),
+      Map.get(fragment, "file_name"),
+      Map.get(fragment, "file_size"),
+      Map.get(fragment, "seq_hash"),
+      hashkey
+    ]
+    hmac = Utils.Crypto.gen_multi_hash(hmac_parts)
+    Map.put(fragment, "hmac", hmac)
+  end
+
+  defp serialize(fragment) do
+    Poison.encode!(fragment)
   end
 
   defp write_out(fragment) do
-    file_path = "debug/out/#{:rand.uniform(4096)}.json"
+    file_path = "debug/out/#{:rand.uniform(9999999999)}.json"
     { :ok, file } = File.open(file_path, [:write])
     IO.binwrite file, fragment
     File.close file

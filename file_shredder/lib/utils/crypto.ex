@@ -27,11 +27,12 @@ defmodule Utils.Crypto do
   end
 
   def gen_key(password) do
-    key = :crypto.hash(:sha256, password) |> String.slice(0..@key_size-1)
+    :crypto.hash(:sha256, password) |> String.slice(0..@key_size-1)
   end
 
   def gen_multi_hash(parts) do
-    :crypto.hash(:sha256, Enum.join(parts)) |> to_string
+    :crypto.hash(:sha256, Enum.join(parts))
+    |> to_string
     |> Base.encode64
   end
 

@@ -92,7 +92,7 @@ defmodule FileShredderTest do
   end
 
   test "fragment with where n > filesize", context do
-    assert :error == FileShredder.fragment(context[:file_type], 27, "pword")
+    assert :error == FileShredder.fragment(context[:file_type], Utils.File.size(context[:file_type]) + 1, "pword")
   end
 
 end
