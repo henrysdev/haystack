@@ -1,4 +1,5 @@
 defmodule FileShredder.Reassembler do
+
   @moduledoc """
   Documentation for FileShredder.
   """
@@ -21,13 +22,12 @@ defmodule FileShredder.Reassembler do
     |> Stream.filter(&valid_hmac?(&1)) # filter out invalid hmacs
     |> Enum.reduce(%{}, &gen_seq_map(&1, &2)) # reduce into sequence map
 
-
     init_frag = Map.get(seq_map, gen_seq_hash(0, hashkey))
     |> decr_field("file_name", hashkey)
     |> decr_field("file_size", hashkey)
     file_name = Map.get(init_frag, "file_name")
     { file_size, _ } = Map.get(init_frag, "file_size") |> Integer.parse()
-    
+
     Utils.File.create(file_name, file_size)
 
     n = map_size(seq_map)

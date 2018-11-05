@@ -1,4 +1,5 @@
 defmodule FileShredder.Fragmentor do
+
   @moduledoc """
   Documentation for FileShredder.
   """
@@ -16,13 +17,12 @@ defmodule FileShredder.Fragmentor do
   defp pad_frag(chunk, chunk_size) do
     pad_amt = chunk_size - byte_size(chunk)
     chunk = chunk <> to_string(:string.chars(0, pad_amt))
-    {chunk, pad_amt}
+    %{"payload" => chunk, "pad_amt" => pad_amt |> Integer.to_string()}
   end
 
   defp dummy(chunk_size) do
-    pad_amt = 0
     chunk = to_string(:string.chars(0, chunk_size))
-    {chunk, pad_amt}
+    %{"payload" => chunk, "pad_amt" => "0"}
   end
 
   defp gen_dummies(0, _chunk_size), do: []
@@ -33,7 +33,7 @@ defmodule FileShredder.Fragmentor do
   def fragment(file_path, n, password) when n > 1 do
     hashkey = Utils.Crypto.gen_key(password)
     file_name = Path.basename(file_path)
-    %{ size: file_size } = File.stat! file_path
+    file_size = Utils.File.size(file_path)
     if n > file_size do
       :error
     else
@@ -46,11 +46,11 @@ defmodule FileShredder.Fragmentor do
       |> File.stream!([], chunk_size)
       |> Stream.map(&pad_frag(&1, chunk_size)) # pad frags + add pad_amt
       |> Stream.concat(gen_dummies(dummy_count, chunk_size)) # add dummy frags
-      |> Stream.map(&Tuple.append(&1, file_name)) # add file_size
-      |> Stream.map(&Tuple.append(&1, file_size)) # add file_size
+      |> Stream.map(&Map.put(&1, "file_name", file_name))
+      |> Stream.map(&Map.put(&1, "file_size", file_size |> Integer.to_string()))
       |> Stream.with_index() # add sequence IDs
-      #|> Enum.map(&finish_frag(&1, hashkey))
-      |> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
+      |> Enum.map(&finish_frag(&1, hashkey))
+      #|> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
       |> Enum.to_list()
 
       {:ok, frag_paths}
@@ -58,9 +58,8 @@ defmodule FileShredder.Fragmentor do
   end
   def fragment(_, _, _), do: :error
 
-  defp finish_frag({ { payload, pad_amt, file_name, file_size }, seq_id }, hashkey) do
-    { payload, pad_amt, file_name, file_size }
-    |> form_frag()
+  defp finish_frag({ fragment, seq_id }, hashkey) do
+    fragment
     |> encr_field("payload", hashkey)
     |> encr_field("pad_amt", hashkey)
     |> encr_field("file_name", hashkey)
@@ -69,15 +68,6 @@ defmodule FileShredder.Fragmentor do
     |> add_hmac(hashkey)
     |> serialize()
     |> write_out()
-  end
-
-  defp form_frag({ payload, pad_amt, file_name, file_size }) do
-    %{
-      "payload"   => payload,
-      "pad_amt"   => pad_amt |> Integer.to_string(),
-      "file_name" => file_name,
-      "file_size" => file_size |> Integer.to_string()
-    }
   end
   
   defp encr_field(map, field, hashkey) do
