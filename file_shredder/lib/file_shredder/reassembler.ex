@@ -41,6 +41,7 @@ defmodule FileShredder.Reassembler do
     |> Stream.filter(&(n - dummy_count > &1))
     |> Stream.map(&{&1, Map.get(seq_map, gen_seq_hash(&1, hashkey))})
     |> Utils.Parallel.pmap(&finish_reassem(&1, hashkey, file_name, chunk_size))
+    { :ok, file_name }
   end
 
   defp start_reassem(file, hashkey) do

@@ -9,11 +9,20 @@ defmodule Utils.File do
     File.open!(fpath, [:read, :binary])
   end
 
-  def create(file_name, file_size) do
+  def create(fpath, file_size) do
     case :os.type() do
-      {:unix, :linux}  -> System.cmd("fallocate", ["-l", file_size |> Integer.to_string(), file_name])
-      {:unix, :darwin} -> System.cmd("mkfile", ["-n", file_size |> Integer.to_string(), file_name])
+      {:unix, :linux}  -> System.cmd("fallocate", ["-l", file_size |> Integer.to_string(), fpath])
+      {:unix, :darwin} -> System.cmd("mkfile", ["-n", file_size |> Integer.to_string(), fpath])
     end
+  end
+
+  def delete(fpath) do
+    File.rm!(fpath)
+  end
+
+  def clear_dir(dirpath) do
+    Path.wildcard(dirpath)
+    |> delete()
   end
 
 end

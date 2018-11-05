@@ -1,4 +1,4 @@
-defmodule FileShredder.Benchmark do
+defmodule Dev.Benchmark do
   def measure(function) do
     function
     |> :timer.tc

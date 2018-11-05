@@ -27,30 +27,40 @@ defmodule FileShredder.Fragmentor do
 
   defp gen_dummies(0, _chunk_size), do: []
   defp gen_dummies(dummy_count, chunk_size) do
-    for _ <- 0..dummy_count, do: dummy(chunk_size)
+    IO.inspect dummy_count
+    for _ <- 0..dummy_count-1, do: dummy(chunk_size)
   end
 
-  def fragment(file_path, n, password) do
+  def fragment(file_path, n, password) when n > 1 do
     hashkey = Utils.Crypto.gen_key(password)
     file_name = Path.basename(file_path)
     %{ size: file_size } = File.stat! file_path
+    if n > file_size do
+      :error
+    else
+      chunk_size = Float.ceil(file_size/n) |> trunc()
+      padding = (n * chunk_size) - file_size
+      partial_pad = rem(padding, chunk_size)
+      dummy_count = div((padding - partial_pad), chunk_size)
+      non_dummy_count = n - dummy_count
 
-    chunk_size = Float.ceil(file_size/n) |> trunc()
-    padding = (n * chunk_size) - file_size
-    partial_pad = rem(padding, chunk_size)
-    dummy_count = div((padding - partial_pad), chunk_size)
+      frag_paths = file_path
+      |> File.stream!([], chunk_size)
+      |> Stream.map(&pad_frag(&1, chunk_size)) # pad frags + add pad_amt
+      |> Stream.concat(gen_dummies(dummy_count, chunk_size)) # add dummy frags
+      |> Enum.to_list()
+      |> IO.inspect()
+      |> Stream.map(&Tuple.append(&1, file_name)) # add file_size
+      |> Stream.map(&Tuple.append(&1, file_size)) # add file_size
+      |> Stream.with_index() # add sequence IDs
+      #|> Enum.map(&finish_frag(&1, hashkey))
+      |> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
+      |> Enum.to_list()
 
-    file_path
-    |> File.stream!([], chunk_size)
-    |> Stream.map(&pad_frag(&1, chunk_size)) # pad frags + add pad_amt
-    |> Stream.concat(gen_dummies(dummy_count, chunk_size)) # add dummy frags
-    |> Stream.map(&Tuple.append(&1, file_name)) # add file_size
-    |> Stream.map(&Tuple.append(&1, file_size)) # add file_size
-    |> Stream.with_index() # add sequence IDs
-    #|> Enum.map(&finish_frag(&1, hashkey))
-    |> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
-
+      {:ok, frag_paths}
+    end
   end
+  def fragment(_, _, _), do: :error
 
   defp finish_frag({ { payload, pad_amt, file_name, file_size }, seq_id }, hashkey) do
     { payload, pad_amt, file_name, file_size }
@@ -106,9 +116,11 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp write_out(fragment) do
-    { :ok, file } = File.open "debug/out/#{:rand.uniform(4096)}.json", [:write]
+    file_path = "debug/out/#{:rand.uniform(4096)}.json"
+    { :ok, file } = File.open(file_path, [:write])
     IO.binwrite file, fragment
     File.close file
+    file_path
   end
 
 end

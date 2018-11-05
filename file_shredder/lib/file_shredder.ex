@@ -8,8 +8,8 @@ defmodule FileShredder do
 
   ## Examples
 
-      iex> FileShredder.hello()
-      :world
+      #iex> FileShredder.fragment()
+      #:world
 
   """
   defdelegate fragment(filepath, n, password), to: FileShredder.Fragmentor
