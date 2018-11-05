@@ -17,11 +17,11 @@ defmodule Utils.Crypto do
 
   def encrypt(data, key) do
     :crypto.block_encrypt(:aes_cbc, key, @zero_iv, pad(data, @aes_block_size))
-    |> Base.encode64
+    #|> Base.encode64
   end
 
   def decrypt(data, key) do
-    { :ok, data } = Base.decode64(data)
+    #{ :ok, data } = Base.decode64(data)
     padded = :crypto.block_decrypt(:aes_cbc, key, @zero_iv, data)
     unpad(padded)
   end
@@ -33,7 +33,7 @@ defmodule Utils.Crypto do
   def gen_multi_hash(parts) do
     :crypto.hash(:sha256, Enum.join(parts))
     |> to_string
-    |> Base.encode64
+    #|> Base.encode64
   end
 
 end

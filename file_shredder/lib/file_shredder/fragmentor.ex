@@ -95,7 +95,18 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp serialize(fragment) do
-    Poison.encode!(fragment)
+    #IO.inspect fragment
+    Utils.Protobuf.Fragment.new(
+      payload:   Map.get(fragment, "payload"),
+      pad_amt:   Map.get(fragment, "pad_amt"),
+      file_name: Map.get(fragment, "file_name"),
+      file_size: Map.get(fragment, "file_size"),
+      seq_hash:  Map.get(fragment, "seq_hash"),
+      hmac:      Map.get(fragment, "hmac")
+    )
+    |> Utils.Protobuf.Fragment.encode()
+    |> IO.inspect()
+    #Poison.encode!(fragment)
   end
 
   defp write_out(fragment) do

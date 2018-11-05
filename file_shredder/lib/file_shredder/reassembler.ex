@@ -54,7 +54,10 @@ defmodule FileShredder.Reassembler do
   end
 
   defp deserialize(fragment) do
-    Poison.Parser.parse!(fragment)
+    frag = Utils.Protobuf.Fragment.decode(fragment)
+    IO.inspect frag
+    frag
+    #Poison.Parser.parse!(fragment)
   end
 
   defp gen_correct_hmac(fragment, hashkey) do
