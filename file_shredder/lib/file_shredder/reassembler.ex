@@ -40,7 +40,15 @@ defmodule FileShredder.Reassembler do
     |> Enum.to_list()
     |> Stream.filter(&(n - dummy_count > &1))
     |> Stream.map(&{&1, Map.get(seq_map, gen_seq_hash(&1, hashkey))})
+    # DEBUG CLAUSE TO CATCH REJECTED FRAGMENTS
+    |> Enum.map(fn
+                {seq_id, nil} -> IO.inspect {seq_id, gen_seq_hash(seq_id, hashkey)} 
+                {seq_id, b} -> {seq_id, b} end)
+    |> Enum.filter(fn {seq_id, fragment} -> is_map(fragment) end)
+    #|> Enum.map(&finish_reassem(&1, hashkey, file_name, chunk_size))
     |> Utils.Parallel.pmap(&finish_reassem(&1, hashkey, file_name, chunk_size))
+
+    Utils.File.clear_dir(dirpath)
     { :ok, file_name }
   end
 

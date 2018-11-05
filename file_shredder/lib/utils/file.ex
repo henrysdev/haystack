@@ -22,7 +22,7 @@ defmodule Utils.File do
 
   def clear_dir(dirpath) do
     Path.wildcard(dirpath)
-    |> delete()
+    |> Enum.each(&File.rm!(&1))
   end
 
 end

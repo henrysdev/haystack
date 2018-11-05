@@ -27,7 +27,6 @@ defmodule FileShredder.Fragmentor do
 
   defp gen_dummies(0, _chunk_size), do: []
   defp gen_dummies(dummy_count, chunk_size) do
-    IO.inspect dummy_count
     for _ <- 0..dummy_count-1, do: dummy(chunk_size)
   end
 
@@ -48,12 +47,9 @@ defmodule FileShredder.Fragmentor do
       |> File.stream!([], chunk_size)
       |> Stream.map(&pad_frag(&1, chunk_size)) # pad frags + add pad_amt
       |> Stream.concat(gen_dummies(dummy_count, chunk_size)) # add dummy frags
-      |> Enum.to_list()
-      |> IO.inspect()
       |> Stream.map(&Tuple.append(&1, file_name)) # add file_size
       |> Stream.map(&Tuple.append(&1, file_size)) # add file_size
       |> Stream.with_index() # add sequence IDs
-      #|> Enum.map(&finish_frag(&1, hashkey))
       |> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
       |> Enum.to_list()
 
