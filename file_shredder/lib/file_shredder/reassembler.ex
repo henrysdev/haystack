@@ -19,8 +19,8 @@ defmodule FileShredder.Reassembler do
 
     seq_map = Path.wildcard(dirpath)
     # DEBUG
-    |> Enum.map(&start_reassem(&1, hashkey))
-    #|> Utils.Parallel.pmap(&start_reassem(&1, hashkey))
+    #|> Enum.map(&start_reassem(&1, hashkey))
+    |> Utils.Parallel.pmap(&start_reassem(&1, hashkey))
     |> Stream.filter(&valid_hmac?(&1)) # filter out invalid hmacs
     |> Enum.reduce(%{}, &gen_seq_map(&1, &2)) # reduce into sequence map
 
@@ -43,22 +43,37 @@ defmodule FileShredder.Reassembler do
     |> Stream.filter(&(n - dummy_count > &1))
     |> Stream.map(&{&1, Map.get(seq_map, gen_seq_hash(&1, hashkey))})
     # DEBUG
-    |> Enum.map(&finish_reassem(&1, hashkey, file_name, chunk_size))
-    #|> Utils.Parallel.pmap(&finish_reassem(&1, hashkey, file_name, chunk_size))
+    #|> Enum.map(&finish_reassem(&1, hashkey, file_name, chunk_size))
+    |> Utils.Parallel.pmap(&finish_reassem(&1, hashkey, file_name, chunk_size))
 
     Utils.File.clear_dir(dirpath)
     { :ok, file_name }
   end
 
   defp start_reassem(file, hashkey) do
+    frag_size = Utils.File.size(file)
     file
-    |> File.read!()
-    |> deserialize()
+    #|> File.read!()
+    #|> deserialize_json()
+    |> File.open!()
+    |> deserialize_raw(frag_size)
     |> gen_correct_hmac(hashkey)
   end
 
-  defp deserialize(fragment) do
+  defp deserialize_json(fragment) do
     Poison.Parser.parse!(fragment)
+  end
+
+  defp deserialize_raw(frag_file, frag_size) do
+    IO.inspect "at deserialize_raw..."
+    %{
+      "payload"   => Utils.File.read_segment(frag_file, 0, frag_size - 224),
+      "pad_amt"   => Utils.File.read_segment(frag_file, frag_size - 224, 32),
+      "file_size" => Utils.File.read_segment(frag_file, frag_size - 192, 32),
+      "file_name" => Utils.File.read_segment(frag_file, frag_size - 160, 96),
+      "seq_hash"  => Utils.File.read_segment(frag_file, frag_size - 64, 32),
+      "hmac"      => Utils.File.read_segment(frag_file, frag_size - 32, 32)
+    }
   end
 
   defp gen_correct_hmac(fragment, hashkey) do
@@ -95,6 +110,7 @@ defmodule FileShredder.Reassembler do
   end
 
   defp reform_frag({seq_id, fragment}) do
+    IO.inspect "at reform frag..."
     %{ 
       "seq_id"  => seq_id, 
       "payload" => Map.get(fragment, "payload"), 
@@ -103,20 +119,25 @@ defmodule FileShredder.Reassembler do
   end
 
   defp decr_field(map, field, hashkey) do
+    IO.inspect "at decr_field #{field}..."
     cipherdata = Map.get(map, field)
     plaindata = Utils.Crypto.decrypt(cipherdata, hashkey)
     Map.put(map, field, plaindata)
   end
 
   defp unpad_payload(fragment) do
+    IO.inspect "at unpad_payload..."
     { pad_amt, _ } = Map.get(fragment, "pad_amt") |> Integer.parse()
     payload = Map.get(fragment, "payload")
-    pl_length = String.length(payload)
-    payload = String.slice(payload, 0..pl_length - pad_amt - 1)
+    pl_length = byte_size(payload)
+    #to_remove = :binary.last(payload)
+    :binary.part(payload, 0, byte_size(payload) - pad_amt)
+    #payload = String.slice(payload, 0..pl_length - pad_amt - 1)
     Map.put(fragment, "payload", payload)
   end
 
   defp write_payload(fragment, file_name, chunk_size) do
+    IO.inspect "at write_payload..."
     payload  = Map.get(fragment, "payload")
     seek_pos = Map.get(fragment, "seq_id") * chunk_size
     out_file = File.open!(file_name, [:write, :read])

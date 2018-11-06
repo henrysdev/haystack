@@ -9,9 +9,10 @@ defmodule Utils.File do
     File.open!(fpath, [:read, :binary])
   end
 
-  def seek(file, seek_pos) do
-    {:ok, _pos} = :file.position(file, seek_pos)
-    file
+  def read_segment(file, start_pos, seg_size) do
+    {:ok, _pos} = :file.position(file, start_pos)
+    {:ok, content} = :file.read(file, seg_size)
+    content
   end
 
   def create(fpath, file_size) do

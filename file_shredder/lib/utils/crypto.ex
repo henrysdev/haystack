@@ -1,7 +1,7 @@
 defmodule Utils.Crypto do
 
   # erlang crypto adapted from: https://stackoverflow.com/a/37660251
-  @aes_block_size 16
+  @aes_block_size 32
   @key_size 32
   @zero_iv to_string(:string.chars(0, 16)) # TODO: Implement legitimate init vector!
 
@@ -15,8 +15,8 @@ defmodule Utils.Crypto do
     :binary.part(data, 0, byte_size(data) - to_remove)
   end
 
-  def encrypt(data, key) do
-    :crypto.block_encrypt(:aes_cbc, key, @zero_iv, pad(data, @aes_block_size))
+  def encrypt(data, key, pad_size \\ 32) do
+    :crypto.block_encrypt(:aes_cbc, key, @zero_iv, pad(data, pad_size))
     #|> Base.encode64
   end
 
