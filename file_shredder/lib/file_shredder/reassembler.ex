@@ -13,43 +13,6 @@ defmodule FileShredder.Reassembler do
       :world
 
   """
-
-  def reassemble(dirpath, password) do
-    hashkey = Utils.Crypto.gen_key(password)
-
-    seq_map = Path.wildcard(dirpath)
-    # DEBUG
-    #|> Enum.map(&start_reassem(&1, hashkey))
-    |> Utils.Parallel.pmap(&start_reassem(&1, hashkey))
-    |> Stream.filter(&valid_hmac?(&1)) # filter out invalid hmacs
-    |> Enum.reduce(%{}, &gen_seq_map(&1, &2)) # reduce into sequence map
-
-    init_frag = Map.get(seq_map, gen_seq_hash(0, hashkey))
-    |> decr_field("file_name", hashkey)
-    |> decr_field("file_size", hashkey)
-    file_name = Map.get(init_frag, "file_name")
-    { file_size, _ } = Map.get(init_frag, "file_size") |> Integer.parse()
-
-    Utils.File.create(file_name, file_size)
-
-    n = map_size(seq_map)
-    chunk_size = Float.ceil(file_size/n) |> trunc()
-    padding = (n * chunk_size) - file_size
-    partial_pad = rem(padding, chunk_size)
-    dummy_count = div((padding - partial_pad), chunk_size)
-
-    0..(map_size(seq_map)-1)
-    |> Enum.to_list()
-    |> Stream.filter(&(n - dummy_count > &1))
-    |> Stream.map(&{&1, Map.get(seq_map, gen_seq_hash(&1, hashkey))})
-    # DEBUG
-    #|> Enum.map(&finish_reassem(&1, hashkey, file_name, chunk_size))
-    |> Utils.Parallel.pmap(&finish_reassem(&1, hashkey, file_name, chunk_size))
-
-    Utils.File.clear_dir(dirpath)
-    { :ok, file_name }
-  end
-
   defp start_reassem(file, hashkey) do
     frag_size = Utils.File.size(file)
     file
@@ -65,6 +28,7 @@ defmodule FileShredder.Reassembler do
   end
 
   defp deserialize_raw(frag_file, frag_size) do
+    # TODO: find a clean way to manage these magic numbers...
     IO.inspect "at deserialize_raw..."
     %{
       "payload"   => Utils.File.read_segment(frag_file, 0, frag_size - 224),
@@ -100,6 +64,42 @@ defmodule FileShredder.Reassembler do
     Utils.Crypto.gen_multi_hash([hashkey, seq_id])
   end
 
+  def reassemble(dirpath, password) do
+    hashkey = Utils.Crypto.gen_key(password)
+
+    seq_map = Path.wildcard(dirpath)
+    # DEBUG
+    #|> Enum.map(&start_reassem(&1, hashkey))
+    |> Utils.Parallel.pmap(&start_reassem(&1, hashkey))
+    |> Stream.filter(&valid_hmac?(&1)) # filter out invalid hmacs
+    |> Enum.reduce(%{}, &gen_seq_map(&1, &2)) # reduce into sequence map
+
+    init_frag = Map.get(seq_map, gen_seq_hash(0, hashkey))
+    |> decr_field("file_name", hashkey)
+    |> decr_field("file_size", hashkey)
+    file_name = Map.get(init_frag, "file_name")
+    { file_size, _ } = Map.get(init_frag, "file_size") |> Integer.parse()
+
+    Utils.File.create(file_name, file_size)
+
+    n = map_size(seq_map)
+    chunk_size = Float.ceil(file_size/n) |> trunc()
+    padding = (n * chunk_size) - file_size
+    partial_pad = rem(padding, chunk_size)
+    dummy_count = div((padding - partial_pad), chunk_size)
+
+    0..(map_size(seq_map)-1)
+    |> Enum.to_list()
+    |> Stream.filter(&(n - dummy_count > &1))
+    |> Stream.map(&{&1, Map.get(seq_map, gen_seq_hash(&1, hashkey))})
+    # DEBUG
+    |> Enum.map(&finish_reassem(&1, hashkey, file_name, chunk_size))
+    #|> Utils.Parallel.pmap(&finish_reassem(&1, hashkey, file_name, chunk_size))
+
+    Utils.File.clear_dir(dirpath)
+    { :ok, file_name }
+  end
+
   defp finish_reassem({ seq_id, fragment}, hashkey, file_name, chunk_size) do
     { seq_id, fragment }
     |> reform_frag()
@@ -129,10 +129,7 @@ defmodule FileShredder.Reassembler do
     IO.inspect "at unpad_payload..."
     { pad_amt, _ } = Map.get(fragment, "pad_amt") |> Integer.parse()
     payload = Map.get(fragment, "payload")
-    pl_length = byte_size(payload)
-    #to_remove = :binary.last(payload)
-    :binary.part(payload, 0, byte_size(payload) - pad_amt)
-    #payload = String.slice(payload, 0..pl_length - pad_amt - 1)
+    payload = :binary.part(payload, 0, byte_size(payload) - pad_amt)
     Map.put(fragment, "payload", payload)
   end
 
