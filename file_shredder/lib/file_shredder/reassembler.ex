@@ -14,7 +14,7 @@ defmodule FileShredder.Reassembler do
 
   """
   defp start_reassem(file, hashkey) do
-    IO.inspect "start reassem"
+    IO.inspect "start reassem..."
     frag_size = Utils.File.size(file)
     file
     #|> File.read!()
@@ -67,15 +67,12 @@ defmodule FileShredder.Reassembler do
 
   def reassemble(dirpath, password) do
     hashkey = Utils.Crypto.gen_key(password)
-    IO.inspect("here")
     seq_map = Path.wildcard(dirpath)
     # DEBUG
     #|> Enum.map(&start_reassem(&1, hashkey))
     |> Utils.Parallel.pmap(&start_reassem(&1, hashkey))
     |> Stream.filter(&valid_hmac?(&1)) # filter out invalid hmacs
     |> Enum.reduce(%{}, &gen_seq_map(&1, &2)) # reduce into sequence map
-
-    IO.inspect("here 2")
 
     init_frag = Map.get(seq_map, gen_seq_hash(0, hashkey))
     |> decr_field("file_name", hashkey)
