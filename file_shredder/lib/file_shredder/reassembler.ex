@@ -32,8 +32,7 @@ defmodule FileShredder.Reassembler do
     # TODO: find a clean way to manage these magic numbers...
     IO.inspect "at deserialize_raw..."
     %{
-      "payload"   => Utils.File.read_segment(frag_file, 0, frag_size - 224),
-      "pad_amt"   => Utils.File.read_segment(frag_file, frag_size - 224, 32),
+      "payload"   => Utils.File.read_segment(frag_file, 0, frag_size - 192),
       "file_size" => Utils.File.read_segment(frag_file, frag_size - 192, 32),
       "file_name" => Utils.File.read_segment(frag_file, frag_size - 160, 96),
       "seq_hash"  => Utils.File.read_segment(frag_file, frag_size - 64, 32),
@@ -44,7 +43,6 @@ defmodule FileShredder.Reassembler do
   defp gen_correct_hmac(fragment, hashkey) do
     hmac_parts = [
       Map.get(fragment, "payload"),
-      Map.get(fragment, "pad_amt"),
       Map.get(fragment, "file_name"),
       Map.get(fragment, "file_size"),
       Map.get(fragment, "seq_hash"),
@@ -104,7 +102,6 @@ defmodule FileShredder.Reassembler do
     { seq_id, fragment }
     |> reform_frag()
     |> decr_field("payload", hashkey)
-    |> decr_field("pad_amt", hashkey)
     |> unpad_payload()
     |> write_payload(file_name, chunk_size)
   end
@@ -113,8 +110,7 @@ defmodule FileShredder.Reassembler do
     IO.inspect "at reform frag..."
     %{ 
       "seq_id"  => seq_id, 
-      "payload" => Map.get(fragment, "payload"), 
-      "pad_amt" => Map.get(fragment, "pad_amt")
+      "payload" => Map.get(fragment, "payload")
     }
   end
 
@@ -127,9 +123,7 @@ defmodule FileShredder.Reassembler do
 
   defp unpad_payload(fragment) do
     IO.inspect "at unpad_payload..."
-    { pad_amt, _ } = Map.get(fragment, "pad_amt") |> Integer.parse()
-    payload = Map.get(fragment, "payload")
-    payload = :binary.part(payload, 0, byte_size(payload) - pad_amt)
+    payload = Map.get(fragment, "payload") |> Utils.Crypto.unpad()
     Map.put(fragment, "payload", payload)
   end
 
