@@ -15,7 +15,7 @@ defmodule FileShredder.Fragmentor do
   """
 
   @max_file_name_size 96
-  @max_integer_size 32
+  @max_file_size_int 32
 
   defp pad_frag(chunk, chunk_size) do
     chunk = Utils.Crypto.pad(chunk, chunk_size)
@@ -36,6 +36,7 @@ defmodule FileShredder.Fragmentor do
     hashkey = Utils.Crypto.gen_key(password)
     file_name = Path.basename(file_path)
     file_size = Utils.File.size(file_path)
+    # TODO: find a way around gross if statement
     if n > file_size do
       :error
     else
@@ -51,8 +52,6 @@ defmodule FileShredder.Fragmentor do
       |> Stream.map(&Map.put(&1, "file_name", file_name))
       |> Stream.map(&Map.put(&1, "file_size", file_size |> Integer.to_string()))
       |> Stream.with_index() # add sequence ID
-      # DEBUG
-      #|> Enum.map(&finish_frag(&1, hashkey))
       |> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
       |> Enum.to_list()
 
@@ -65,7 +64,7 @@ defmodule FileShredder.Fragmentor do
     fragment
     |> encr_field("payload", hashkey)
     |> encr_field("file_name", hashkey, @max_file_name_size)
-    |> encr_field("file_size", hashkey, @max_integer_size)
+    |> encr_field("file_size", hashkey, @max_file_size_int)
     |> add_seq_hash(hashkey, seq_id)
     |> add_hmac(hashkey)
     #|> serialize_json()
@@ -96,9 +95,9 @@ defmodule FileShredder.Fragmentor do
     Map.put(fragment, "hmac", hmac)
   end
 
-  defp serialize_json(fragment) do
-    Poison.encode!(fragment)
-  end
+  # defp serialize_json(fragment) do
+  #   Poison.encode!(fragment)
+  # end
 
   defp serialize_raw(fragment) do
     Map.get(fragment, "payload")   <>

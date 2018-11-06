@@ -13,6 +13,10 @@ defmodule FileShredder.Reassembler do
       :world
 
   """
+  @max_file_name_size 96
+  @max_file_size_int 32
+  @hash_size 32
+
   defp start_reassem(file, hashkey) do
     IO.inspect "start reassem..."
     frag_size = Utils.File.size(file)
@@ -32,11 +36,11 @@ defmodule FileShredder.Reassembler do
     # TODO: find a clean way to manage these magic numbers...
     IO.inspect "at deserialize_raw..."
     %{
-      "payload"   => Utils.File.read_segment(frag_file, 0, frag_size - 192),
-      "file_size" => Utils.File.read_segment(frag_file, frag_size - 192, 32),
-      "file_name" => Utils.File.read_segment(frag_file, frag_size - 160, 96),
-      "seq_hash"  => Utils.File.read_segment(frag_file, frag_size - 64, 32),
-      "hmac"      => Utils.File.read_segment(frag_file, frag_size - 32, 32)
+      "payload"   => Utils.File.read_segment(frag_file, 0, frag_size - 192), 
+      "file_size" => Utils.File.read_segment(frag_file, frag_size - 192, @max_file_size_int),
+      "file_name" => Utils.File.read_segment(frag_file, frag_size - 160, @max_file_name_size),
+      "seq_hash"  => Utils.File.read_segment(frag_file, frag_size - 64,  @hash_size),
+      "hmac"      => Utils.File.read_segment(frag_file, frag_size - 32,  @hash_size)
     }
   end
 
@@ -66,8 +70,6 @@ defmodule FileShredder.Reassembler do
   def reassemble(dirpath, password) do
     hashkey = Utils.Crypto.gen_key(password)
     seq_map = Path.wildcard(dirpath)
-    # DEBUG
-    #|> Enum.map(&start_reassem(&1, hashkey))
     |> Utils.Parallel.pmap(&start_reassem(&1, hashkey))
     |> Stream.filter(&valid_hmac?(&1)) # filter out invalid hmacs
     |> Enum.reduce(%{}, &gen_seq_map(&1, &2)) # reduce into sequence map
@@ -88,10 +90,8 @@ defmodule FileShredder.Reassembler do
 
     0..(map_size(seq_map)-1)
     |> Enum.to_list()
-    |> Stream.filter(&(n - dummy_count > &1))
+    |> Stream.reject(&(n - dummy_count <= &1)) # throw out dummy fragments
     |> Stream.map(&{&1, Map.get(seq_map, gen_seq_hash(&1, hashkey))})
-    # DEBUG
-    #|> Enum.map(&finish_reassem(&1, hashkey, file_name, chunk_size))
     |> Utils.Parallel.pmap(&finish_reassem(&1, hashkey, file_name, chunk_size))
 
     Utils.File.clear_dir(dirpath)
