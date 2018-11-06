@@ -49,6 +49,7 @@ defmodule FileShredder.Fragmentor do
       |> Stream.map(&Map.put(&1, "file_name", file_name))
       |> Stream.map(&Map.put(&1, "file_size", file_size |> Integer.to_string()))
       |> Stream.with_index() # add sequence IDs
+      # DEBUG
       |> Enum.map(&finish_frag(&1, hashkey))
       #|> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
       |> Enum.to_list()
@@ -95,18 +96,7 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp serialize(fragment) do
-    #IO.inspect fragment
-    Utils.Protobuf.Fragment.new(
-      payload:   Map.get(fragment, "payload"),
-      pad_amt:   Map.get(fragment, "pad_amt"),
-      file_name: Map.get(fragment, "file_name"),
-      file_size: Map.get(fragment, "file_size"),
-      seq_hash:  Map.get(fragment, "seq_hash"),
-      hmac:      Map.get(fragment, "hmac")
-    )
-    |> Utils.Protobuf.Fragment.encode()
-    |> IO.inspect()
-    #Poison.encode!(fragment)
+    Poison.encode!(fragment)
   end
 
   defp write_out(fragment) do

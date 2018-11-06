@@ -5,7 +5,7 @@ import ExProf.Macro
   @doc "analyze with profile macro"
   def analyze_fragmentor do
     profile do
-      FileShredder.fragment("debug/in/kingjames.txt", 40, "pword")
+      FileShredder.fragment("debug/in/abc.txt", 2, "pword")
       IO.puts "message\n"
     end
   end

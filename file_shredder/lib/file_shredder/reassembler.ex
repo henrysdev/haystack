@@ -18,7 +18,9 @@ defmodule FileShredder.Reassembler do
     hashkey = Utils.Crypto.gen_key(password)
 
     seq_map = Path.wildcard(dirpath)
-    |> Utils.Parallel.pmap(&start_reassem(&1, hashkey))
+    # DEBUG
+    |> Enum.map(&start_reassem(&1, hashkey))
+    #|> Utils.Parallel.pmap(&start_reassem(&1, hashkey))
     |> Stream.filter(&valid_hmac?(&1)) # filter out invalid hmacs
     |> Enum.reduce(%{}, &gen_seq_map(&1, &2)) # reduce into sequence map
 
@@ -40,7 +42,9 @@ defmodule FileShredder.Reassembler do
     |> Enum.to_list()
     |> Stream.filter(&(n - dummy_count > &1))
     |> Stream.map(&{&1, Map.get(seq_map, gen_seq_hash(&1, hashkey))})
-    |> Utils.Parallel.pmap(&finish_reassem(&1, hashkey, file_name, chunk_size))
+    # DEBUG
+    |> Enum.map(&finish_reassem(&1, hashkey, file_name, chunk_size))
+    #|> Utils.Parallel.pmap(&finish_reassem(&1, hashkey, file_name, chunk_size))
 
     Utils.File.clear_dir(dirpath)
     { :ok, file_name }
@@ -54,10 +58,7 @@ defmodule FileShredder.Reassembler do
   end
 
   defp deserialize(fragment) do
-    frag = Utils.Protobuf.Fragment.decode(fragment)
-    IO.inspect frag
-    frag
-    #Poison.Parser.parse!(fragment)
+    Poison.Parser.parse!(fragment)
   end
 
   defp gen_correct_hmac(fragment, hashkey) do

@@ -9,6 +9,11 @@ defmodule Utils.File do
     File.open!(fpath, [:read, :binary])
   end
 
+  def seek(file, seek_pos) do
+    {:ok, _pos} = :file.position(file, seek_pos)
+    file
+  end
+
   def create(fpath, file_size) do
     case :os.type() do
       {:unix, :linux}  -> System.cmd("fallocate", ["-l", file_size |> Integer.to_string(), fpath])
