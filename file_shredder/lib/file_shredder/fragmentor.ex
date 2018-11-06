@@ -113,7 +113,7 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp write_out(fragment) do
-    file_path = "debug/out/#{:rand.uniform(9999999999)}.json"
+    file_path = "debug/out/#{:rand.uniform(9999999999)}.frg"
     { :ok, file } = File.open(file_path, [:write])
     IO.binwrite file, fragment
     File.close file

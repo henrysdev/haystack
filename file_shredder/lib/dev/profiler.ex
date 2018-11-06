@@ -11,7 +11,7 @@ import ExProf.Macro
   end
 
   @doc "analyze with profile macro"
-  def analyze_reassembler(dirpath \\ "debug/out/*.json", pword \\ "pword") do
+  def analyze_reassembler(dirpath \\ "debug/out/*.frg", pword \\ "pword") do
     profile do
       FileShredder.reassemble(dirpath, pword)
       IO.puts "message\n"
@@ -25,7 +25,7 @@ import ExProf.Macro
     IO.inspect "total = #{total_percent}"
   end
 
-  def run_reassembler(dirpath \\ "debug/out/*.json", pword \\ "pword") do
+  def run_reassembler(dirpath \\ "debug/out/*.frg", pword \\ "pword") do
     {records, _block_result} = analyze_reassembler(dirpath, pword)
     total_percent = Enum.reduce(records, 0.0, &(&1.percent + &2))
     IO.inspect "total = #{total_percent}"
