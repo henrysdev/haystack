@@ -9,6 +9,12 @@ defmodule Utils.File do
     File.open!(fpath, [:read, :binary])
   end
 
+  def write(fpath, content) do
+    { :ok, file } = File.open(fpath, [:write])
+    IO.binwrite file, content
+    File.close file
+  end
+
   def read_segment(file, start_pos, seg_size) do
     {:ok, _pos} = :file.position(file, start_pos)
     {:ok, content} = :file.read(file, seg_size)

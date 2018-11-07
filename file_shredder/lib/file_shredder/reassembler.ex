@@ -13,12 +13,16 @@ defmodule FileShredder.Reassembler do
       :world
 
   """
+  # DEBUG
+  @logger "debug/logs/@logger.txt"
+
+  @frag_overhead 192
   @max_file_name_size 96
   @max_file_size_int 32
   @hash_size 32
 
   defp start_reassem(file, hashkey) do
-    IO.inspect "start reassem..."
+    Utils.File.write(@logger, "start reassem...")
     frag_size = Utils.File.size(file)
     file
     #|> File.read!()
@@ -34,7 +38,7 @@ defmodule FileShredder.Reassembler do
 
   defp deserialize_raw(frag_file, frag_size) do
     # TODO: find a clean way to manage these magic numbers...
-    IO.inspect "at deserialize_raw..."
+    Utils.File.write(@logger, "at deserialize_raw...")
     %{
       "payload"   => Utils.File.read_segment(frag_file, 0, frag_size - 192), 
       "file_size" => Utils.File.read_segment(frag_file, frag_size - 192, @max_file_size_int),
@@ -107,7 +111,7 @@ defmodule FileShredder.Reassembler do
   end
 
   defp reform_frag({seq_id, fragment}) do
-    IO.inspect "at reform frag..."
+    Utils.File.write(@logger, "at reform frag...")
     %{ 
       "seq_id"  => seq_id, 
       "payload" => Map.get(fragment, "payload")
@@ -115,20 +119,20 @@ defmodule FileShredder.Reassembler do
   end
 
   defp decr_field(map, field, hashkey) do
-    IO.inspect "at decr_field #{field}..."
+    Utils.File.write(@logger, "at decr_field #{field}...")
     cipherdata = Map.get(map, field)
     plaindata = Utils.Crypto.decrypt(cipherdata, hashkey)
     Map.put(map, field, plaindata)
   end
 
   defp unpad_payload(fragment) do
-    IO.inspect "at unpad_payload..."
+    Utils.File.write(@logger, "at unpad_payload...")
     payload = Map.get(fragment, "payload") |> Utils.Crypto.unpad()
     Map.put(fragment, "payload", payload)
   end
 
   defp write_payload(fragment, file_name, chunk_size) do
-    IO.inspect "at write_payload..."
+    Utils.File.write(@logger, "at write_payload...")
     payload  = Map.get(fragment, "payload")
     seek_pos = Map.get(fragment, "seq_id") * chunk_size
     out_file = File.open!(file_name, [:write, :read])

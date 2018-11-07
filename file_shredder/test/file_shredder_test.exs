@@ -11,7 +11,8 @@ defmodule FileShredderTest do
   setup context do
     file_types = %{
       :small  => "debug/in/abc.txt",
-      :medium => "debug/in/4kbees.mp4"
+      :medium => "debug/in/4kbees.mp4",
+      :large  => "debug/in/large_file"
     }
     {:ok,[
       file_type: Map.get(file_types, :medium),
@@ -24,58 +25,78 @@ defmodule FileShredderTest do
     |> Enum.each(&File.rm!(&1))
   end
 
+  defp bound_n(n) when n > 50 do
+    50
+  end
+
   test "fragment DEBUG_FILE where n < filesize / 2", context do
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], 2, "pword")
-    assert length(fragments) == 2
+    n = div(Utils.File.size(context[:file_type]), 2) - 1
+    |> bound_n()
+    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
+    assert length(fragments) == n
     clean_up(fragments)
   end
 
   test "reassemble DEBUG_FILE where n < filesize / 2", context do
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], 2, "pword")
+    n = div(Utils.File.size(context[:file_type]), 2) - 1
+    |> bound_n()
+    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
     fname = Path.basename(context[:file_type])
-    assert {{:ok, fname}, 2} = {FileShredder.reassemble(context[:frag_dir], "pword"), length(fragments)}
+    assert {{:ok, fname}, n} = {FileShredder.reassemble(context[:frag_dir], "pword"), length(fragments)}
   end
 
 
 
   test "fragment DEBUG_FILE where n == filesize / 2", context do
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], 13, "pword")
-    assert length(fragments) == 13
+    n = div(Utils.File.size(context[:file_type]), 2)
+    |> bound_n()
+    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
+    assert length(fragments) == n
     clean_up(fragments)
   end
 
   test "reassemble DEBUG_FILE where n == filesize / 2", context do
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], 13, "pword")
+    n = div(Utils.File.size(context[:file_type]),2)
+    |> bound_n()
+    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
     fname = Path.basename(context[:file_type])
-    assert {{:ok, fname}, 13} = {FileShredder.reassemble(context[:frag_dir], "pword"), length(fragments)}
+    assert {{:ok, fname}, n} = {FileShredder.reassemble(context[:frag_dir], "pword"), length(fragments)}
   end
 
 
 
   test "fragment DEBUG_FILE where n > filesize / 2", context do
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], 14, "pword")
-    assert length(fragments) == 14
+    n = div(Utils.File.size(context[:file_type]),2) + 1
+    |> bound_n()
+    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
+    assert length(fragments) == n
     clean_up(fragments)
   end
 
   test "reassemble DEBUG_FILE where n > filesize / 2", context do
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], 14, "pword")
+    n = div(Utils.File.size(context[:file_type]),2) + 1
+    |> bound_n()
+    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
     fname = Path.basename(context[:file_type])
-    assert {{:ok, fname}, 14} = {FileShredder.reassemble(context[:frag_dir], "pword"), length(fragments)}
+    assert {{:ok, fname}, n} = {FileShredder.reassemble(context[:frag_dir], "pword"), length(fragments)}
   end
 
 
 
   test "fragment DEBUG_FILE where n == filesize", context do
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], 26, "pword")
-    assert length(fragments) == 26
+    n = Utils.File.size(context[:file_type])
+    |> bound_n()
+    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
+    assert length(fragments) == n
     clean_up(fragments)
   end
 
   test "reassemble DEBUG_FILE where n == filesize", context do
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], 26, "pword")
+    n = Utils.File.size(context[:file_type])
+    |> bound_n()
+    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
     fname = Path.basename(context[:file_type])
-    assert {{:ok, fname}, 26} = {FileShredder.reassemble(context[:frag_dir], "pword"), length(fragments)}
+    assert {{:ok, fname}, n} = {FileShredder.reassemble(context[:frag_dir], "pword"), length(fragments)}
   end
 
 
@@ -93,7 +114,9 @@ defmodule FileShredderTest do
   end
 
   test "fragment with where n > filesize", context do
-    assert :error == FileShredder.fragment(context[:file_type], Utils.File.size(context[:file_type]) + 1, "pword")
+    n = Utils.File.size(context[:file_type]) + 1
+    |> bound_n()
+    assert :error == FileShredder.fragment(context[:file_type], n, "pword")
   end
 
 end
