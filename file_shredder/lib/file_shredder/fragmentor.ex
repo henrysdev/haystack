@@ -19,6 +19,7 @@ defmodule FileShredder.Fragmentor do
   @max_file_name_size 96
   @max_file_size_int 32
 
+
   defp pad_frag(chunk, chunk_size) do
     Utils.File.write(@logger,"pad_frag...")
     chunk = Utils.Crypto.pad(chunk, chunk_size)

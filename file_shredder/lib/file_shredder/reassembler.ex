@@ -21,6 +21,7 @@ defmodule FileShredder.Reassembler do
   @max_file_size_int 32
   @hash_size 32
 
+
   defp start_reassem(file, hashkey) do
     Utils.File.write(@logger, "start reassem...")
     frag_size = Utils.File.size(file)
