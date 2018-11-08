@@ -57,8 +57,9 @@ defmodule FileShredder.Fragmentor do
       |> Stream.map(&Map.put(&1, "file_name", file_name))
       |> Stream.map(&Map.put(&1, "file_size", file_size |> Integer.to_string()))
       |> Stream.with_index() # add sequence ID
-      |> Utils.Parallel.pmap(&finish_frag(&1, hashkey))
+      |> Utils.Parallel.pooled_map(&finish_frag(&1, hashkey))
       |> Enum.to_list()
+      |> IO.inspect()
 
       {:ok, frag_paths}
     end
