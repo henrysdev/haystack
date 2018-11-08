@@ -1,4 +1,5 @@
 defmodule Utils.Parallel do
+
   @pool_size 30
   @max_overflow 0
   @transaction_timeout_ms 10_000_000
@@ -23,4 +24,5 @@ defmodule Utils.Parallel do
     tasks
     |> Enum.map(&Task.await(&1, @await_timeout_ms))
   end
+
 end

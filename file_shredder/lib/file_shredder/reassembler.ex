@@ -16,14 +16,13 @@ defmodule FileShredder.Reassembler do
   # DEBUG
   @logger "debug/logs/@logger.txt"
 
-  @frag_overhead 192
-  @max_file_name_size 96
-  @max_file_size_int 32
+  @file_name_buffer_size 96
+  @file_size_buffer_size 32
   @hash_size 32
 
 
   defp start_reassem(file, hashkey) do
-    Utils.File.write(@logger, "start reassem...")
+    Utils.File.write(@logger, "start reassem...",)
     frag_size = Utils.File.size(file)
     file
     #|> File.read!()
@@ -42,8 +41,8 @@ defmodule FileShredder.Reassembler do
     Utils.File.write(@logger, "at deserialize_raw...")
     %{
       "payload"   => Utils.File.read_segment(frag_file, 0, frag_size - 192), 
-      "file_size" => Utils.File.read_segment(frag_file, frag_size - 192, @max_file_size_int),
-      "file_name" => Utils.File.read_segment(frag_file, frag_size - 160, @max_file_name_size),
+      "file_size" => Utils.File.read_segment(frag_file, frag_size - 192, @file_size_buffer_size),
+      "file_name" => Utils.File.read_segment(frag_file, frag_size - 160, @file_name_buffer_size),
       "seq_hash"  => Utils.File.read_segment(frag_file, frag_size - 64,  @hash_size),
       "hmac"      => Utils.File.read_segment(frag_file, frag_size - 32,  @hash_size)
     }

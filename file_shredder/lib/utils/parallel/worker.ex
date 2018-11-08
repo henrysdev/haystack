@@ -1,4 +1,5 @@
 defmodule Utils.Parallel.Worker do
+
   use GenServer
   
   def start_link(_) do
@@ -15,4 +16,5 @@ defmodule Utils.Parallel.Worker do
     res = func.(args)
     {:reply, res, state}
   end
+
 end
