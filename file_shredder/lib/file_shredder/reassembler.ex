@@ -40,11 +40,11 @@ defmodule FileShredder.Reassembler do
     # TODO: find a clean way to manage these magic numbers...
     Utils.File.write(@logger, "at deserialize_raw...")
     %{
-      "payload"   => Utils.File.read_segment(frag_file, 0, frag_size - 192), 
-      "file_size" => Utils.File.read_segment(frag_file, frag_size - 192, @file_size_buffer_size),
-      "file_name" => Utils.File.read_segment(frag_file, frag_size - 160, @file_name_buffer_size),
-      "seq_hash"  => Utils.File.read_segment(frag_file, frag_size - 64,  @hash_size),
-      "hmac"      => Utils.File.read_segment(frag_file, frag_size - 32,  @hash_size)
+      "payload"   => Utils.File.seek_read(frag_file, 0, frag_size - 192), 
+      "file_size" => Utils.File.seek_read(frag_file, frag_size - 192, @file_size_buffer_size),
+      "file_name" => Utils.File.seek_read(frag_file, frag_size - 160, @file_name_buffer_size),
+      "seq_hash"  => Utils.File.seek_read(frag_file, frag_size - 64,  @hash_size),
+      "hmac"      => Utils.File.seek_read(frag_file, frag_size - 32,  @hash_size)
     }
   end
 

@@ -15,7 +15,7 @@ defmodule Utils.File do
     File.close file
   end
 
-  def read_segment(file, start_pos, seg_size) do
+  def seek_read(file, start_pos, seg_size) do
     {:ok, _pos} = :file.position(file, start_pos)
     {:ok, content} = :file.read(file, seg_size)
     content
