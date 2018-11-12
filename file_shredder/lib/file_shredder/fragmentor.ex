@@ -21,13 +21,13 @@ defmodule FileShredder.Fragmentor do
 
 
   defp pad_frag(chunk, chunk_size) do
-    Utils.File.write(@logger,"pad_frag...")
+    #IO.puts("pad_frag...")
     chunk = Utils.Crypto.pad(chunk, chunk_size)
     %{ "payload" => chunk}
   end
 
   defp dummy(chunk_size) do
-    Utils.File.write(@logger,"dummy...")
+    #IO.puts("dummy...")
     chunk = to_string(:string.chars(0, chunk_size-1)) |> Utils.Crypto.pad(chunk_size)
     %{"payload" => chunk}
   end
@@ -79,20 +79,20 @@ defmodule FileShredder.Fragmentor do
   end
   
   defp encr_field(map, field, hashkey, pad \\ 32) do
-    Utils.File.write(@logger, "encrypting #{field}...")
+    #IO.puts( "encrypting #{field}...")
     plaindata = Map.get(map, field)
     cipherdata = Utils.Crypto.encrypt(plaindata, hashkey, pad)
     Map.put(map, field, cipherdata)
   end
   
   defp add_seq_hash(fragment, hashkey, seq_id) do
-    Utils.File.write(@logger,"add_seq_hash...")
+    #IO.puts("add_seq_hash...")
     seq_hash = Utils.Crypto.gen_multi_hash([hashkey, seq_id])
     Map.put(fragment, "seq_hash", seq_hash)
   end
 
   defp add_hmac(fragment, hashkey) do
-    Utils.File.write(@logger,"add_hmac...")
+    #IO.puts("add_hmac...")
     hmac_parts = [
       Map.get(fragment, "payload"),
       Map.get(fragment, "file_name"),
@@ -109,7 +109,7 @@ defmodule FileShredder.Fragmentor do
   # end
 
   defp serialize_raw(fragment) do
-    Utils.File.write(@logger,"serialize_raw...")
+    #IO.puts("serialize_raw...")
     Map.get(fragment, "payload")   <>
     Map.get(fragment, "file_size") <>
     Map.get(fragment, "file_name") <>
@@ -118,7 +118,7 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp write_out(fragment) do
-    Utils.File.write(@logger,"write_out...")
+    #IO.puts("write_out...")
     file_path = "debug/out/#{:rand.uniform(9999999999)}.frg"
     { :ok, file } = File.open(file_path, [:write])
     IO.binwrite file, fragment
