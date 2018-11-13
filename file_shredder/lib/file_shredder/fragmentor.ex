@@ -25,7 +25,14 @@ defmodule FileShredder.Fragmentor do
   defp pad_frag(chunk, chunk_size) do
     #IO.puts("pad_frag...")
     chunk = Utils.Crypto.pad(chunk, chunk_size)
-    %{ "payload" => chunk}
+    %{"payload" => chunk}
+  end
+
+  defp calc_extra_count(dummy_count, _chunk_count, n, total_count) when div(total_count, n) == 1 do
+    dummy_count
+  end
+  defp calc_extra_count(_dummy_count, chunk_count, n, total_count) do
+    (total_count + (n - rem(total_count, n))) - chunk_count #max(0, Float.ceil(total_count / n) |> trunc())
   end
 
   defp dummy(chunk_size) do
@@ -47,6 +54,11 @@ defmodule FileShredder.Fragmentor do
     chunk_size = @standard_frag_size + 1
     chunk_count = Float.ceil(file_size/@standard_frag_size) |> trunc()
     dummy_count = max(0, n - chunk_count)
+    total_count = dummy_count + chunk_count
+
+    dummy_count = calc_extra_count(dummy_count, chunk_count, n, total_count)
+
+    #dummy_count = dummy_count + max(Float.ceil((total_chunks)/n) |> trunc(), 0)
 
     frag_paths = file_path
     |> File.stream!([], chunk_size - 1)
@@ -69,7 +81,6 @@ defmodule FileShredder.Fragmentor do
     |> encr_field("file_size", hashkey, @max_file_size_int)
     |> add_seq_hash(hashkey, seq_id)
     |> add_hmac(hashkey)
-    #|> serialize_json()
     |> serialize_raw()
     |> write_out()
   end
@@ -100,12 +111,7 @@ defmodule FileShredder.Fragmentor do
     Map.put(fragment, "hmac", hmac)
   end
 
-  # defp serialize_json(fragment) do
-  #   Poison.encode!(fragment)
-  # end
-
   defp serialize_raw(fragment) do
-    #IO.puts("serialize_raw...")
     Map.get(fragment, "payload")   <>
     Map.get(fragment, "file_size") <>
     Map.get(fragment, "file_name") <>

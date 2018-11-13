@@ -27,16 +27,10 @@ defmodule FileShredder.Reassembler do
     #IO.puts( "start reassem...")
     frag_size = Utils.File.size(file)
     file
-    #|> File.read!()
-    #|> deserialize_json()
     |> File.open!()
     |> deserialize_raw(frag_size)
     |> gen_correct_hmac(hashkey)
   end
-
-  # defp deserialize_json(fragment) do
-  #   Poison.Parser.parse!(fragment)
-  # end
 
   defp deserialize_raw(frag_file, frag_size) do
     # TODO: find a clean way to manage these magic numbers...
