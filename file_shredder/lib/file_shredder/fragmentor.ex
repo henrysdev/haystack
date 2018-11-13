@@ -16,7 +16,7 @@ defmodule FileShredder.Fragmentor do
   # DEBUG
   @logger "debug/logs/@logger.txt"
 
-  @standard_frag_size 2
+  @standard_frag_size 16
 
   @max_file_name_size 96
   @max_file_size_int 32
@@ -32,7 +32,7 @@ defmodule FileShredder.Fragmentor do
     dummy_count
   end
   defp calc_extra_count(_dummy_count, chunk_count, n, total_count) do
-    (total_count + (n - rem(total_count, n))) - chunk_count #max(0, Float.ceil(total_count / n) |> trunc())
+    (total_count + (n - rem(total_count, n))) - chunk_count
   end
 
   defp dummy(chunk_size) do
@@ -52,13 +52,10 @@ defmodule FileShredder.Fragmentor do
     file_size = Utils.File.size(file_path)
 
     chunk_size = @standard_frag_size + 1
-    chunk_count = Float.ceil(file_size/@standard_frag_size) |> trunc()
+    chunk_count = Float.ceil(file_size / @standard_frag_size) |> trunc()
     dummy_count = max(0, n - chunk_count)
     total_count = dummy_count + chunk_count
-
     dummy_count = calc_extra_count(dummy_count, chunk_count, n, total_count)
-
-    #dummy_count = dummy_count + max(Float.ceil((total_chunks)/n) |> trunc(), 0)
 
     frag_paths = file_path
     |> File.stream!([], chunk_size - 1)
@@ -67,7 +64,8 @@ defmodule FileShredder.Fragmentor do
     |> Stream.map(&Map.put(&1, "file_name", file_name))
     |> Stream.map(&Map.put(&1, "file_size", file_size |> Integer.to_string()))
     |> Stream.with_index() # add sequence ID
-    |> Utils.Parallel.pooled_map(&finish_frag(&1, hashkey))
+    |> Enum.map(&finish_frag(&1, hashkey))
+    #|> Utils.Parallel.pooled_map(&finish_frag(&1, hashkey))
     |> Enum.to_list()
 
     {:ok, frag_paths}
@@ -95,33 +93,39 @@ defmodule FileShredder.Fragmentor do
   defp add_seq_hash(fragment, hashkey, seq_id) do
     #IO.puts("add_seq_hash...")
     seq_hash = Utils.Crypto.gen_multi_hash([hashkey, seq_id])
-    Map.put(fragment, "seq_hash", seq_hash)
+    #Map.put(fragment, "seq_hash", seq_hash)
+    { fragment, seq_hash }
   end
 
-  defp add_hmac(fragment, hashkey) do
+  defp add_hmac({ fragment, seq_hash }, hashkey) do
     #IO.puts("add_hmac...")
     hmac_parts = [
       Map.get(fragment, "payload"),
       Map.get(fragment, "file_name"),
       Map.get(fragment, "file_size"),
-      Map.get(fragment, "seq_hash"),
+      seq_hash,
       hashkey
     ]
     hmac = Utils.Crypto.gen_multi_hash(hmac_parts)
-    Map.put(fragment, "hmac", hmac)
+    #IO.inspect Map.get(fragment, "file_name"), label: "file_name"
+    { Map.put(fragment, "hmac", hmac), seq_hash }
   end
 
-  defp serialize_raw(fragment) do
-    Map.get(fragment, "payload")   <>
-    Map.get(fragment, "file_size") <>
-    Map.get(fragment, "file_name") <>
-    Map.get(fragment, "seq_hash")  <>
-    Map.get(fragment, "hmac")
+  defp serialize_raw({ fragment, seq_hash }) do
+    IO.inspect fragment
+    {
+      Map.get(fragment, "payload")   <> # X
+      Map.get(fragment, "file_size") <> # 32
+      Map.get(fragment, "file_name") <> # 96
+      Map.get(fragment, "hmac"), # 32
+      seq_hash
+    }
   end
 
-  defp write_out(fragment) do
+  defp write_out({ fragment, seq_hash }) do
     #IO.puts("write_out...")
-    file_path = "debug/out/#{:rand.uniform(9999999999)}.frg"
+    seq_hash = Base.encode16(seq_hash)
+    file_path = "debug/out/#{seq_hash}.frg"
     { :ok, file } = File.open(file_path, [:write])
     IO.binwrite file, fragment
     File.close file
