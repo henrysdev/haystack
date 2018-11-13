@@ -16,6 +16,8 @@ defmodule FileShredder.Reassembler do
   # DEBUG
   @logger "debug/logs/@logger.txt"
 
+  @standard_frag_size 2
+
   @file_name_buffer_size 96
   @file_size_buffer_size 32
   @hash_size 32
@@ -87,7 +89,7 @@ defmodule FileShredder.Reassembler do
     Utils.File.create(file_name, file_size)
 
     n = map_size(seq_map)
-    chunk_size = Float.ceil(file_size/n) |> trunc()
+    chunk_size = @standard_frag_size #Float.ceil(file_size/n) |> trunc()
     padding = (n * chunk_size) - file_size
     partial_pad = rem(padding, chunk_size)
     dummy_count = div((padding - partial_pad), chunk_size)

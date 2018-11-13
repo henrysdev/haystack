@@ -3,7 +3,7 @@ defmodule FileShredderTest do
   doctest FileShredder
 
   @small_file  "debug/in/small_file"
-  @small_size  100 # 100 bytes
+  @small_size  26 # 100 bytes
 
   @medium_file "debug/in/medium_file"
   @medium_size 1073741824 # 1 GB
@@ -31,7 +31,7 @@ defmodule FileShredderTest do
       :large  => @large_file,
     }
     {:ok,[
-      file_type: Map.get(file_types, :medium),
+      file_type: Map.get(file_types, :small),
       frag_dir: @frag_dir
     ]}
   end

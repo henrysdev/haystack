@@ -16,6 +16,8 @@ defmodule FileShredder.Fragmentor do
   # DEBUG
   @logger "debug/logs/@logger.txt"
 
+  @standard_frag_size 2
+
   @max_file_name_size 96
   @max_file_size_int 32
 
@@ -41,28 +43,22 @@ defmodule FileShredder.Fragmentor do
     hashkey = Utils.Crypto.gen_key(password)
     file_name = Path.basename(file_path)
     file_size = Utils.File.size(file_path)
-    # TODO: find a way around gross if statement
-    if n > file_size do
-      :error
-    else
-      chunk_size = (Float.ceil(file_size/n) |> trunc()) + 1
-      padding = (n * chunk_size) - file_size
-      partial_pad = rem(padding, chunk_size)
-      dummy_count = div((padding - partial_pad), chunk_size)
 
-      frag_paths = file_path
-      |> File.stream!([], chunk_size - 1)
-      |> Stream.map(&pad_frag(&1, chunk_size)) # pad frags + add pad_amt
-      |> Stream.concat(gen_dummies(dummy_count, chunk_size)) # add dummy frags
-      |> Stream.map(&Map.put(&1, "file_name", file_name))
-      |> Stream.map(&Map.put(&1, "file_size", file_size |> Integer.to_string()))
-      |> Stream.with_index() # add sequence ID
-      |> Utils.Parallel.pooled_map(&finish_frag(&1, hashkey))
-      |> Enum.to_list()
-      |> IO.inspect()
+    chunk_size = @standard_frag_size + 1
+    chunk_count = Float.ceil(file_size/@standard_frag_size) |> trunc()
+    dummy_count = max(0, n - chunk_count)
 
-      {:ok, frag_paths}
-    end
+    frag_paths = file_path
+    |> File.stream!([], chunk_size - 1)
+    |> Stream.map(&pad_frag(&1, chunk_size)) # pad frags
+    |> Stream.concat(gen_dummies(dummy_count, chunk_size)) # add dummy frags
+    |> Stream.map(&Map.put(&1, "file_name", file_name))
+    |> Stream.map(&Map.put(&1, "file_size", file_size |> Integer.to_string()))
+    |> Stream.with_index() # add sequence ID
+    |> Utils.Parallel.pooled_map(&finish_frag(&1, hashkey))
+    |> Enum.to_list()
+
+    {:ok, frag_paths}
   end
   def fragment(_, _, _), do: :error
 
