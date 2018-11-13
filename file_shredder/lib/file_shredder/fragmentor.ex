@@ -16,14 +16,14 @@ defmodule FileShredder.Fragmentor do
   # DEBUG
   @logger "debug/logs/@logger.txt"
 
-  @standard_frag_size 16
+  @standard_frag_size 160
 
   @max_file_name_size 96
   @max_file_size_int 32
 
 
   defp pad_frag(chunk, chunk_size) do
-    #IO.puts("pad_frag...")
+    IO.puts("pad_frag...")
     chunk = Utils.Crypto.pad(chunk, chunk_size)
     %{"payload" => chunk}
   end
@@ -36,7 +36,7 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp dummy(chunk_size) do
-    #IO.puts("dummy...")
+    IO.puts("dummy...")
     chunk = to_string(:string.chars(0, chunk_size-1)) |> Utils.Crypto.pad(chunk_size)
     %{"payload" => chunk}
   end
@@ -64,8 +64,8 @@ defmodule FileShredder.Fragmentor do
     |> Stream.map(&Map.put(&1, "file_name", file_name))
     |> Stream.map(&Map.put(&1, "file_size", file_size |> Integer.to_string()))
     |> Stream.with_index() # add sequence ID
-    |> Enum.map(&finish_frag(&1, hashkey))
-    #|> Utils.Parallel.pooled_map(&finish_frag(&1, hashkey))
+    #|> Enum.map(&finish_frag(&1, hashkey))
+    |> Utils.Parallel.pooled_map(&finish_frag(&1, hashkey))
     |> Enum.to_list()
 
     {:ok, frag_paths}
@@ -84,21 +84,20 @@ defmodule FileShredder.Fragmentor do
   end
   
   defp encr_field(map, field, hashkey, pad \\ 32) do
-    #IO.puts( "encrypting #{field}...")
+    IO.puts( "encrypting #{field}...")
     plaindata = Map.get(map, field)
     cipherdata = Utils.Crypto.encrypt(plaindata, hashkey, pad)
     Map.put(map, field, cipherdata)
   end
   
   defp add_seq_hash(fragment, hashkey, seq_id) do
-    #IO.puts("add_seq_hash...")
+    IO.puts("add_seq_hash...")
     seq_hash = Utils.Crypto.gen_multi_hash([hashkey, seq_id])
-    #Map.put(fragment, "seq_hash", seq_hash)
     { fragment, seq_hash }
   end
 
   defp add_hmac({ fragment, seq_hash }, hashkey) do
-    #IO.puts("add_hmac...")
+    IO.puts("add_hmac...")
     hmac_parts = [
       Map.get(fragment, "payload"),
       Map.get(fragment, "file_name"),
@@ -112,7 +111,6 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp serialize_raw({ fragment, seq_hash }) do
-    IO.inspect fragment
     {
       Map.get(fragment, "payload")   <> # X
       Map.get(fragment, "file_size") <> # 32
@@ -123,7 +121,7 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp write_out({ fragment, seq_hash }) do
-    #IO.puts("write_out...")
+    IO.puts("write_out...")
     seq_hash = Base.encode16(seq_hash)
     file_path = "debug/out/#{seq_hash}.frg"
     { :ok, file } = File.open(file_path, [:write])
