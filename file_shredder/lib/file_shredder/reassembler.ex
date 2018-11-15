@@ -14,7 +14,7 @@ defmodule FileShredder.Reassembler do
 
   """
   # DEBUG
-  @logger "debug/logs/@logger.txt"
+  #@logger "debug/logs/@logger.txt"
 
   @standard_frag_size 160
 
@@ -22,7 +22,7 @@ defmodule FileShredder.Reassembler do
   @file_size_buffer_size 32
   @hash_size 32
 
-  defp reassem({ frag_path, seq_id, seq_hash }, hashkey, :init) do
+  defp reassem({frag_path, _seq_id, seq_hash}, hashkey, :init) do
     #IO.puts( "start reassem...")
     frag_size = Utils.File.size(frag_path)
     frag_path
@@ -31,7 +31,7 @@ defmodule FileShredder.Reassembler do
     |> gen_correct_hmac(seq_hash, hashkey)
     |> check_hmac()
   end
-  defp reassem({ { frag_path, seq_id, seq_hash }, false}, hashkey, file_name) do
+  defp reassem({{frag_path, seq_id, seq_hash}, false}, hashkey, file_name, chunk_size) do
     #IO.puts( "start reassem...")
     frag_size = Utils.File.size(frag_path)
     frag_path
@@ -42,16 +42,16 @@ defmodule FileShredder.Reassembler do
     |> reform_frag(seq_id)
     |> decr_field("payload", hashkey)
     |> unpad_payload()
-    |> write_payload(file_name)
+    |> write_payload(file_name, chunk_size)
     Utils.File.delete(frag_path)
   end
-  defp reassem({ { frag_path, seq_id, seq_hash }, true}, hashkey, file_name) do
+  defp reassem({{frag_path, _seq_id, _seq_hash}, true}, _hashkey, _file_name, _chunk_size) do
     Utils.File.delete(frag_path)
   end
 
-  defp dummy_frag?({ frag_path, seq_id, seq_hash }, file_size) do
+  defp dummy_frag?({_frag_path, seq_id, _seq_hash}, file_size, chunk_size) do
     cond do
-      seq_id * @standard_frag_size >= file_size -> true
+      (chunk_size) * seq_id >= file_size -> true
       true -> false
     end
   end
@@ -65,8 +65,8 @@ defmodule FileShredder.Reassembler do
       "file_name" => Utils.File.seek_read(frag_file, frag_size - 128, @file_name_buffer_size),
       "hmac"      => Utils.File.seek_read(frag_file, frag_size - 32,  @hash_size),
     }
-    #File.close(frag_file)
-    #fragment
+    File.close frag_file
+    fragment
   end
 
   defp gen_correct_hmac(fragment, seq_hash, hashkey) do
@@ -77,14 +77,14 @@ defmodule FileShredder.Reassembler do
       seq_hash,
       hashkey
     ]
-    { fragment, Utils.Crypto.gen_multi_hash(hmac_parts) }
+    {fragment, Utils.Crypto.gen_multi_hash(hmac_parts)}
   end
 
   defp check_hmac({fragment, correct_hmac}) do
-    { fragment, valid_hmac?({fragment, correct_hmac })}
+    {fragment, valid_hmac?({fragment, correct_hmac})}
   end
 
-  defp valid_hmac?({ fragment, correct_hmac }) do
+  defp valid_hmac?({fragment, correct_hmac}) do
     Map.get(fragment, "hmac") == correct_hmac
   end
 
@@ -101,51 +101,43 @@ defmodule FileShredder.Reassembler do
     seq_hash  = gen_seq_hash(seq_id, hashkey)
     frag_path = seq_hash |> gen_frag_path(dirpath)
     case File.exists? frag_path do
-      true  -> iter_frag_seq(seq_id + 1, hashkey, dirpath, [ {frag_path, seq_id, seq_hash} | acc ])
+      true  -> iter_frag_seq(seq_id + 1, hashkey, dirpath, [{frag_path, seq_id, seq_hash} | acc])
       false -> acc
     end
   end
 
   def reassemble(dirpath, password) do
     hashkey = Utils.Crypto.gen_key(password)
-    
     init_seq_id = 0
     init_seq_hash = gen_seq_hash(init_seq_id, hashkey)
 
     init_frag_path = gen_frag_path(init_seq_hash, dirpath)
-    { init_frag_path, true } = { init_frag_path, init_seq_id, init_seq_hash } 
+    {init_frag_path, true} = {init_frag_path, init_seq_id, init_seq_hash} 
     |> reassem(hashkey, :init)
 
     init_frag = init_frag_path
     |> decr_field("file_name", hashkey)
     |> decr_field("file_size", hashkey)
-    
+    |> decr_field("payload", hashkey)
+
+    chunk_size = byte_size(Map.get(init_frag, "payload")) - 1
 
     file_name = Map.get(init_frag, "file_name")
-    { file_size, _ } = Map.get(init_frag, "file_size") |> Integer.parse()
-
+    {file_size, _} = Map.get(init_frag, "file_size") |> Integer.parse()
     Utils.File.create(file_name, file_size)
 
     file_paths = iter_frag_seq(0, hashkey, dirpath, [])
-
-    out_paths = file_paths
-    |> Stream.map(&{ &1, dummy_frag?(&1, file_size) })
-    |> Utils.Parallel.pooled_map(&reassem(&1, hashkey, file_name))
-  end
-
-  defp finish_reassem({ seq_id, fragment}, hashkey, file_name, chunk_size) do
-    { seq_id, fragment }
-    |> reform_frag()
-    |> decr_field("payload", hashkey)
-    |> unpad_payload()
-    |> write_payload(file_name, chunk_size)
+    #out_paths = file_paths
+    |> Stream.map(&{&1, dummy_frag?(&1, file_size, chunk_size)})
+    #|> Enum.map(&reassem(&1, hashkey, file_name, chunk_size))
+    |> Utils.Parallel.pooled_map(&reassem(&1, hashkey, file_name, chunk_size))
   end
 
   defp reform_frag({fragment, true}, seq_id) do
     #IO.puts( "at reform frag...")
     %{ 
-      "seq_id"  => seq_id, 
-      "payload" => Map.get(fragment, "payload")
+      "seq_id"   => seq_id, 
+      "payload"  => Map.get(fragment, "payload"),
     }
   end
   defp reform_frag({_fragment, _}, _seq_id) do
@@ -167,7 +159,7 @@ defmodule FileShredder.Reassembler do
     Map.put(fragment, "payload", payload)
   end
 
-  defp write_payload(fragment, file_name, chunk_size \\ @standard_frag_size) do
+  defp write_payload(fragment, file_name, chunk_size) do
     #IO.puts( "at write_payload...")
     payload  = Map.get(fragment, "payload")
     IO.inspect byte_size(payload)
@@ -175,6 +167,7 @@ defmodule FileShredder.Reassembler do
     out_file = File.open!(file_name, [:write, :read])
     {:ok, _pos} = :file.position(out_file, seek_pos)
     :file.write(out_file, payload)
+    file_name
   end
 
 end

@@ -38,8 +38,6 @@ defmodule Utils.File do
   end
 
   def diff?(fpath1, fpath2) do
-    IO.inspect fpath1, label: "fpath1"
-    IO.inspect fpath2, label: "fpath2"
     { dif, _ } = System.cmd("diff", [fpath1, fpath2])
     dif != ""
   end
