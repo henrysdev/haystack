@@ -2,121 +2,140 @@ defmodule FileShredderTest do
   use ExUnit.Case
   doctest FileShredder
 
-  stale_files = Path.wildcard("debug/out/*.frg")
-  if length(stale_files) > 0 do
-    stale_files
-    |> Enum.each(&File.rm!(&1))
-  end
+  @small_file "debug/in/small_file"
+  @small_file_size 50 # 50 bytes
+
+  @medium_file "debug/in/medium_file"
+  @medium_file_size 1_073_741_824  # 1 GB
+
+  @frag_dir  "debug/out/*.frg"
+  @password "pword"
+
 
   setup context do
-    file_types = %{
-      :small  => "debug/in/abc.txt",
-      :medium => "debug/in/4kbees.mp4",
-      :large  => "debug/in/large_file"
+
+    # allocate dummy files
+    #Utils.File.create(@small_file, @small_file_size)
+    Utils.File.create(@medium_file, @medium_file_size)
+
+    test_files = %{
+      :small   => @small_file,
+      :medium  => @medium_file,
     }
     {:ok,[
-      file_type: Map.get(file_types, :medium),
-      frag_dir: "debug/out/*.frg"
+      medium_file: Map.get(test_files, :medium),
+      small_file: Map.get(test_files, :small),
+      frag_dir: @frag_dir,
     ]}
   end
 
-  defp clean_up(fragments) do
-    fragments
+  defp clean_up(path) do
+    Path.wildcard(path)
     |> Enum.each(&File.rm!(&1))
   end
 
-  defp bound_n(n) when n > 50 do
-    50
+  defp count_files(path) do
+    Path.wildcard(path) |> length()
   end
+
+
 
   test "fragment DEBUG_FILE where n < filesize / 2", context do
-    n = div(Utils.File.size(context[:file_type]), 2) - 1
-    |> bound_n()
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
-    assert length(fragments) == n
-    clean_up(fragments)
+    clean_up(@frag_dir)
+    file_name = context[:small_file]
+    n = 3
+    {:ok, fragments} = FileShredder.fragment(file_name, n, @password)
+    assert n == length(fragments)
+    clean_up(@frag_dir)
   end
-
   test "reassemble DEBUG_FILE where n < filesize / 2", context do
-    n = div(Utils.File.size(context[:file_type]), 2) - 1
-    |> bound_n()
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
-    fname = Path.basename(context[:file_type])
-    assert {{:ok, fname}, n} = {FileShredder.reassemble(context[:frag_dir], "pword"), length(fragments)}
+    file_name = context[:small_file]
+    n = 3
+    FileShredder.fragment(file_name, n, @password)
+    assert n == FileShredder.reassemble(@frag_dir, @password) |> length()
+    assert false == Utils.File.diff?(file_name, Path.basename(file_name))
   end
 
 
 
   test "fragment DEBUG_FILE where n == filesize / 2", context do
-    n = div(Utils.File.size(context[:file_type]), 2)
-    |> bound_n()
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
-    assert length(fragments) == n
-    clean_up(fragments)
+    clean_up(@frag_dir)
+    file_name = context[:small_file]
+    n = div(Utils.File.size(file_name), 2)
+    {:ok, fragments} = FileShredder.fragment(file_name, n, @password)
+    assert n == length(fragments)
+    clean_up(@frag_dir)
   end
-
   test "reassemble DEBUG_FILE where n == filesize / 2", context do
-    n = div(Utils.File.size(context[:file_type]),2)
-    |> bound_n()
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
-    fname = Path.basename(context[:file_type])
-    assert {{:ok, fname}, n} = {FileShredder.reassemble(context[:frag_dir], "pword"), length(fragments)}
+    file_name = context[:small_file]
+    n = div(Utils.File.size(file_name), 2)
+    FileShredder.fragment(file_name, n, @password)
+    assert n == FileShredder.reassemble(@frag_dir, @password) |> length()
+    assert false == Utils.File.diff?(file_name, Path.basename(file_name))
   end
 
 
 
   test "fragment DEBUG_FILE where n > filesize / 2", context do
-    n = div(Utils.File.size(context[:file_type]),2) + 1
-    |> bound_n()
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
-    assert length(fragments) == n
-    clean_up(fragments)
+    clean_up(@frag_dir)
+    file_name = context[:small_file]
+    n = div(Utils.File.size(file_name),2) + 1
+    {:ok, fragments} = FileShredder.fragment(file_name, n, @password)
+    assert n == length(fragments)
+    clean_up(@frag_dir)
   end
-
   test "reassemble DEBUG_FILE where n > filesize / 2", context do
-    n = div(Utils.File.size(context[:file_type]),2) + 1
-    |> bound_n()
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
-    fname = Path.basename(context[:file_type])
-    assert {{:ok, fname}, n} = {FileShredder.reassemble(context[:frag_dir], "pword"), length(fragments)}
+    file_name = context[:small_file]
+    n = div(Utils.File.size(file_name),2) + 1
+    FileShredder.fragment(file_name, n, @password)
+    assert n == FileShredder.reassemble(@frag_dir, @password) |> length()
+    assert false == Utils.File.diff?(file_name, Path.basename(file_name))
   end
 
 
 
   test "fragment DEBUG_FILE where n == filesize", context do
-    n = Utils.File.size(context[:file_type])
-    |> bound_n()
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
-    assert length(fragments) == n
-    clean_up(fragments)
+    clean_up(@frag_dir) 
+    file_name = context[:small_file]
+    n = Utils.File.size(file_name)
+    {:ok, fragments} = FileShredder.fragment(file_name, n, @password)
+    assert n == length(fragments)
+    clean_up(@frag_dir)
   end
-
   test "reassemble DEBUG_FILE where n == filesize", context do
-    n = Utils.File.size(context[:file_type])
-    |> bound_n()
-    {:ok, fragments} = FileShredder.fragment(context[:file_type], n, "pword")
-    fname = Path.basename(context[:file_type])
-    assert {{:ok, fname}, n} = {FileShredder.reassemble(context[:frag_dir], "pword"), length(fragments)}
+    file_name = context[:small_file]
+    n = Utils.File.size(file_name)
+    FileShredder.fragment(file_name, n, @password)
+    assert n == FileShredder.reassemble(@frag_dir, @password) |> length()
+    assert false == Utils.File.diff?(file_name, Path.basename(file_name))
   end
 
 
 
-  test "fragment with n = 0", context do
-    assert :error == FileShredder.fragment(context[:file_type], 0, "pword")
+  test "fragment DEBUG_FILE where n > filesize", context do
+    clean_up(@frag_dir)
+    file_name = context[:small_file]
+    n = Utils.File.size(file_name) + 1
+    {:ok, fragments} = FileShredder.fragment(file_name, n, @password)
+    assert n == length(fragments)
+    clean_up(@frag_dir)
+  end
+  test "reassemble DEBUG_FILE where  n > filesize", context do
+    file_name = context[:small_file]
+    n = Utils.File.size(file_name) + 1
+    FileShredder.fragment(file_name, n, @password)
+    assert n == FileShredder.reassemble(@frag_dir, @password) |> length()
+    assert false == Utils.File.diff?(file_name, Path.basename(file_name))
   end
 
-  test "fragment with n = 1", context do
-    assert :error == FileShredder.fragment(context[:file_type], 1, "pword")
-  end
 
-  test "fragment with n < 0", context do
-    assert :error == FileShredder.fragment(context[:file_type], -3, "pword")
-  end
 
-  test "fragment with where n > filesize", context do
-    n = Utils.File.size(context[:file_type]) + 1
-    |> bound_n()
-    assert :error == FileShredder.fragment(context[:file_type], n, "pword")
+  test "fragment with n < 2", context do
+    clean_up(@frag_dir)
+    file_name = context[:medium_file]
+    n = 1
+    assert :error == FileShredder.fragment(file_name, n, @password)
+    clean_up(@frag_dir)
   end
 
 end

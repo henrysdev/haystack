@@ -15,13 +15,17 @@ defmodule Utils.Crypto do
     :binary.part(data, 0, byte_size(data) - to_remove)
   end
 
+  def encode_and_trim(data, desired_len) do
+    data
+    |> Base.encode32(padding: false)
+    |> String.slice(0..desired_len - 1)
+  end
+
   def encrypt(data, key, pad_size \\ 32) do
     :crypto.block_encrypt(:aes_cbc, key, @zero_iv, pad(data, pad_size))
-    #|> Base.encode64
   end
 
   def decrypt(data, key) do
-    #{ :ok, data } = Base.decode64(data)
     padded = :crypto.block_decrypt(:aes_cbc, key, @zero_iv, data)
     unpad(padded)
   end
@@ -33,7 +37,6 @@ defmodule Utils.Crypto do
   def gen_multi_hash(parts) do
     :crypto.hash(:sha256, Enum.join(parts))
     |> to_string
-    #|> Base.encode64
   end
 
 end

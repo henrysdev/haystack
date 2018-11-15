@@ -37,4 +37,9 @@ defmodule Utils.File do
     |> Enum.each(&File.rm!(&1))
   end
 
+  def diff?(fpath1, fpath2) do
+    { dif, _ } = System.cmd("diff", [fpath1, fpath2])
+    dif != ""
+  end
+
 end

@@ -21,7 +21,6 @@ defmodule FileShredder.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:poison, "~> 3.1"},
       {:exprof, "~> 0.2.0"},
       {:poolboy, "~> 1.5.1"}
       # {:dep_from_hexpm, "~> 0.3.0"},
