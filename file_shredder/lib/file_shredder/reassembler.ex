@@ -14,16 +14,14 @@ defmodule FileShredder.Reassembler do
 
   """
   # DEBUG
-  #@logger "debug/logs/@logger.txt"
-
-  @standard_frag_size 160
+  @debug false
 
   @file_name_buffer_size 96
   @file_size_buffer_size 32
   @hash_size 32
 
   defp reassem({frag_path, _seq_id, seq_hash}, hashkey, :init) do
-    IO.puts( "start reassem...")
+    if @debug do IO.puts( "start reassem...") end
     frag_size = Utils.File.size(frag_path)
     frag_path
     |> File.open!()
@@ -32,7 +30,7 @@ defmodule FileShredder.Reassembler do
     |> check_hmac()
   end
   defp reassem({{frag_path, seq_id, seq_hash}, false}, hashkey, file_name, chunk_size) do
-    IO.puts( "start reassem...")
+    if @debug do IO.puts( "start reassem...") end
     frag_size = Utils.File.size(frag_path)
     frag_path
     |> File.open!()
@@ -58,7 +56,7 @@ defmodule FileShredder.Reassembler do
 
   defp deserialize_raw(frag_file, frag_size) do
     # TODO: find a clean way to manage these magic numbers...
-    IO.puts( "at deserialize_raw...")
+    if @debug do IO.puts( "at deserialize_raw...") end
     fragment = %{
       "payload"   => Utils.File.seek_read(frag_file, 0, frag_size - 160), 
       "file_size" => Utils.File.seek_read(frag_file, frag_size - 160, @file_size_buffer_size),
@@ -133,7 +131,7 @@ defmodule FileShredder.Reassembler do
   end
 
   defp reform_frag({fragment, true}, seq_id) do
-    IO.puts( "at reform frag...")
+    if @debug do IO.puts( "at reform frag...") end
     %{ 
       "seq_id"   => seq_id, 
       "payload"  => Map.get(fragment, "payload"),
@@ -145,20 +143,20 @@ defmodule FileShredder.Reassembler do
   end
 
   defp decr_field(map, field, hashkey) do
-    IO.puts( "at decr_field #{field}...")
+    if @debug do IO.puts( "at decr_field #{field}...") end
     cipherdata = Map.get(map, field)
     plaindata = Utils.Crypto.decrypt(cipherdata, hashkey)
     Map.put(map, field, plaindata)
   end
 
   defp unpad_payload(fragment) do
-    IO.puts( "at unpad_payload...")
+    if @debug do IO.puts( "at unpad_payload...") end
     payload = Map.get(fragment, "payload") |> Utils.Crypto.unpad()
     Map.put(fragment, "payload", payload)
   end
 
   defp write_payload(fragment, file_name, chunk_size) do
-    IO.puts( "at write_payload...")
+    if @debug do IO.puts( "at write_payload...") end
     payload  = Map.get(fragment, "payload")
     seek_pos = Map.get(fragment, "seq_id") * chunk_size
     out_file = File.open!(file_name, [:write, :read])
