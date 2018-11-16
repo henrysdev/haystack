@@ -124,7 +124,7 @@ defmodule FileShredder.Reassembler do
     {file_size, _} = Map.get(init_frag, "file_size") |> Integer.parse()
     Utils.File.create(file_name, file_size)
 
-    file_paths = iter_frag_seq(0, hashkey, dirpath, [])
+    iter_frag_seq(0, hashkey, dirpath, [])
     |> Stream.map(&{&1, dummy_frag?(&1, file_size, chunk_size)})
     #|> Enum.map(&reassem(&1, hashkey, file_name, chunk_size))
     |> Utils.Parallel.pooled_map(&reassem(&1, hashkey, file_name, chunk_size))
