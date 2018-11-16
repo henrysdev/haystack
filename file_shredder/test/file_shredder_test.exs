@@ -16,6 +16,8 @@ defmodule FileShredderTest do
 
 
   setup do
+    Utils.File.delete_dir(@frag_dir)
+    Utils.File.create_dir(@frag_dir)
     # allocate arbitrary test files
     Utils.File.create(@small_file, @small_file_size)
     Utils.File.create(@medium_file, @medium_file_size)
@@ -38,7 +40,6 @@ defmodule FileShredderTest do
     Path.wildcard(path)
     |> Enum.each(&File.rm!(&1))
   end
-
 
 
   test "fragment when n < filesize / 2", context do

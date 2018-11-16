@@ -32,9 +32,12 @@ defmodule Utils.File do
     File.rm!(fpath)
   end
 
-  def clear_dir(dirpath) do
-    Path.wildcard(dirpath)
-    |> Enum.each(&File.rm!(&1))
+  def create_dir(dirpath) do
+    System.cmd("mkdir", [Path.dirname(dirpath)])
+  end
+
+  def delete_dir(dirpath) do
+    System.cmd("rm", ["-rf", Path.dirname(dirpath)])
   end
 
   def diff?(fpath1, fpath2) do

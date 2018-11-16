@@ -51,7 +51,7 @@ defmodule FileShredder.Fragmentor do
     |> Stream.map(&pad_frag(&1, chunk_size)) # pad frags
     |> Stream.concat(gen_dummies(dummy_count, chunk_size)) # add dummy frags
     |> Stream.with_index() # add sequence ID
-    #|> Enum.map(&finish_frag(&1, hashkey, chunk_size, file_name, file_size))
+    #|> Enum.map(&finish_frag(&1, hashkey, file_name, file_size))
     |> Utils.Parallel.pooled_map(&finish_frag(&1, hashkey, file_name, file_size))
     |> Enum.to_list()
 
