@@ -1,6 +1,6 @@
 defmodule Utils.Parallel do
 
-  @pool_size 20
+  @pool_size 6
   @max_overflow 0
   @transaction_timeout_ms 10_000_000
   @await_timeout_ms 100_000_000

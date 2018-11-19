@@ -7,12 +7,10 @@ defmodule Dev.Benchmark do
     |> Kernel./(1_000_000)
   end
 
-  def trials(function, trials, trials, acc_time) do
-    acc_time / trials
-  end
-  def trials(function, trials, t_complete \\ 0, acc_time \\ 0) do
+  def trials(function, trials, trials, acc_time), do: acc_time / trials
+  def trials(function, trials, completed \\ 0, acc_time \\ 0) do
     t = measure(function)
-    trials(function, trials, t_complete + 1, acc_time + t)
+    trials(function, trials, completed + 1, acc_time + t)
   end
 
 end

@@ -10,7 +10,7 @@ defmodule Utils.File do
   end
 
   def write(fpath, content) do
-    File.write!(fpath, content, :binary)
+    File.write!(fpath, content, [:binary])
     # { :ok, file } = File.open(fpath, [:write])
     # IO.binwrite file, content
     # File.close file

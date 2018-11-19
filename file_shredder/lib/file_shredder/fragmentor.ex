@@ -51,8 +51,8 @@ defmodule FileShredder.Fragmentor do
     |> Stream.map(&pad_frag(&1, chunk_size)) # pad frags
     |> Stream.concat(gen_dummies(dummy_count, chunk_size)) # add dummy frags
     |> Stream.with_index() # add sequence ID
-    |> Enum.map(&finish_frag(&1, hashkey, file_name, file_size))
-    #|> Utils.Parallel.pooled_map(&finish_frag(&1, hashkey, file_name, file_size))
+    #|> Enum.map(&finish_frag(&1, hashkey, file_name, file_size))
+    |> Utils.Parallel.pooled_map(&finish_frag(&1, hashkey, file_name, file_size))
     |> Enum.to_list()
 
     {:ok, frag_paths}
@@ -115,23 +115,11 @@ defmodule FileShredder.Fragmentor do
     }
   end
 
-  defp old_serialize_raw({ fragment, seq_hash }) do
-    {
-      Map.get(fragment, "payload")    <> # X
-      Map.get(fragment, "file_size")  <> # 32
-      Map.get(fragment, "file_name")  <> # 96
-      Map.get(fragment, "hmac"),        # 32
-      seq_hash
-    }
-  end
-
   defp write_out({ fragment, seq_hash }) do
     if @debug do IO.puts("write_out...") end
     seq_hash = Base.encode16(seq_hash)
     file_path = "debug/out/#{seq_hash}.frg"
-    { :ok, file } = File.open(file_path, [:write])
-    IO.binwrite file, fragment
-    File.close file
+    Utils.File.write(file_path, fragment)
     file_path
   end
 
