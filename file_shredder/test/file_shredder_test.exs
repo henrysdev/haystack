@@ -18,6 +18,7 @@ defmodule FileShredderTest do
   setup do
     Utils.File.delete_dir(@frag_dir)
     Utils.File.create_dir(@frag_dir)
+    
     # allocate arbitrary test files
     Utils.File.create(@small_file, @small_file_size)
     Utils.File.create(@medium_file, @medium_file_size)

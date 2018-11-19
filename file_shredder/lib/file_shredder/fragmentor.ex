@@ -51,8 +51,8 @@ defmodule FileShredder.Fragmentor do
     |> Stream.map(&pad_frag(&1, chunk_size)) # pad frags
     |> Stream.concat(gen_dummies(dummy_count, chunk_size)) # add dummy frags
     |> Stream.with_index() # add sequence ID
-    #|> Enum.map(&finish_frag(&1, hashkey, file_name, file_size))
-    |> Utils.Parallel.pooled_map(&finish_frag(&1, hashkey, file_name, file_size))
+    |> Enum.map(&finish_frag(&1, hashkey, file_name, file_size))
+    #|> Utils.Parallel.pooled_map(&finish_frag(&1, hashkey, file_name, file_size))
     |> Enum.to_list()
 
     {:ok, frag_paths}
@@ -105,9 +105,21 @@ defmodule FileShredder.Fragmentor do
 
   defp serialize_raw({ fragment, seq_hash }) do
     {
-      Map.get(fragment, "payload")   <> # X
-      Map.get(fragment, "file_size") <> # 32
-      Map.get(fragment, "file_name") <> # 96
+      [
+        Map.get(fragment, "payload"), #   <> # X
+        Map.get(fragment, "file_size"), # <> # 32
+        Map.get(fragment, "file_name"), # <> # 96
+        Map.get(fragment, "hmac"),        # 32
+      ],
+      seq_hash
+    }
+  end
+
+  defp old_serialize_raw({ fragment, seq_hash }) do
+    {
+      Map.get(fragment, "payload")    <> # X
+      Map.get(fragment, "file_size")  <> # 32
+      Map.get(fragment, "file_name")  <> # 96
       Map.get(fragment, "hmac"),        # 32
       seq_hash
     }

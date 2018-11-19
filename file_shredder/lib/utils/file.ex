@@ -10,9 +10,10 @@ defmodule Utils.File do
   end
 
   def write(fpath, content) do
-    { :ok, file } = File.open(fpath, [:write])
-    IO.binwrite file, content
-    File.close file
+    File.write!(fpath, content, :binary)
+    # { :ok, file } = File.open(fpath, [:write])
+    # IO.binwrite file, content
+    # File.close file
   end
 
   def seek_read(file, start_pos, seg_size) do

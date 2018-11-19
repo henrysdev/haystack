@@ -16,7 +16,11 @@ defmodule FileShredder.CLI do
     end
 
     defp response({opts, word}) do
-      if opts[:upcase], do: String.upcase(word), else: word
+      cond do
+        opts[:upcase]   -> String.upcase(word)
+        opts[:downcase] -> String.downcase(word)
+        true -> word
+      end
     end
 
     # def main(["fragment", filepath, n, password]) do
