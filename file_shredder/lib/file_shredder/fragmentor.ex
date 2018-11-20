@@ -16,6 +16,7 @@ defmodule FileShredder.Fragmentor do
   # DEBUG
   @debug false
 
+  @hash_size 32
   @max_file_name_size 96
   @max_file_size_int 32
 
@@ -58,6 +59,22 @@ defmodule FileShredder.Fragmentor do
     file_path = "debug/out/#{seq_hash}.frg" # TODO dont hardcode path, pass in
   end
 
+  defp make_dummy_part(part_size) do
+    to_string(:string.chars(0, part_size-1)) |> Utils.Crypto.pad(part_size)
+  end
+
+  defp retrieve_pload(in_file, seq_id, pl_part_size, file_size) do
+    IO.inspect seq_id
+    cond do
+      file_size > seq_id * pl_part_size -> Utils.File.seek_read(in_file, seq_id, pl_part_size)
+      true -> make_dummy_part(pl_part_size)
+    end
+  end
+
+  defp det_seq_id({pload, seek_pos}) do
+    seq_id = div(part_id, parts_per_frag)
+  end
+
   def fragment(file_path, n, password) when n > 1 do
     hashkey = Utils.Crypto.gen_key(password)
     file_name = Path.basename(file_path)
@@ -69,51 +86,57 @@ defmodule FileShredder.Fragmentor do
     dummy_count = div((padding - partial_pad), (chunk_size - 1))
 
     pl_part_size = calc_pl_part_size(chunk_size, file_size, n)
-    parts_per_frag = div(chunk_size, pl_part_size)
-    frag_size = (parts_per_frag * pl_part_size) + @max_file_name_size + @max_file_size_int + 32 + 32
+    parts_per_frag = Float.ceil(chunk_size/pl_part_size) |> trunc()
+    frag_size = (parts_per_frag * pl_part_size) + @hash_size + @hash_size + @max_file_size_int + @max_file_name_size
 
-    IO.inspect file_size, label: "file_size"
-    IO.inspect n, label: "n"
-    IO.inspect pl_part_size, label: "pl_part_size"
-    IO.inspect chunk_size, label: "chunk_size  "
-    IO.inspect frag_size, label: "frag_size  "
+    # IO.inspect file_size, label: "file_size"
+    # IO.inspect n, label: "n"
+    # IO.inspect pl_part_size, label: "pl_part_size"
+    # IO.inspect chunk_size, label: "chunk_size  "
+    # IO.inspect frag_size, label: "frag_size  "
+
+    in_file = File.open!(file_path)
+
+    Enum.map(0..n-1, fn x -> pl_part_size * x end)
+    |> Enum.map(&{retrieve_pload(in_file, &1, pl_part_size, file_size), &1})
+    |> Enum.map(&det_seq_id(&1))
 
     # WHAT IF chunk_size < pl_part_size? 
     # how many parts per fragment (?)
     # see how many fit in a chunk_size
     # chunk_size // 
 
-    file_info = %{
-      :n              => n,
-      :hashkey        => hashkey,
-      :file_name      => file_name, 
-      :file_size      => file_size,
-      :chunk_size     => chunk_size,
-      :dummy_count    => dummy_count,
-      :pl_part_size   => pl_part_size,
-      :parts_per_frag => parts_per_frag,
-    }
+    # file_info = %{
+    #   :n              => n,
+    #   :hashkey        => hashkey,
+    #   :file_name      => file_name, 
+    #   :file_size      => file_size,
+    #   :chunk_size     => chunk_size,
+    #   :dummy_count    => dummy_count,
+    #   :pl_part_size   => pl_part_size,
+    #   :parts_per_frag => parts_per_frag,
+    # }
 
-    # TODO: parallelizable section
-    seq_map = 0..(n-1)
-    |> Enum.to_list()
-    |> Enum.map(&{&1, gen_seq_hash(&1, hashkey)})
-    |> Enum.map(&{&1, Utils.File.create(gen_frag_path(elem(&1,1)), frag_size)})
-    |> Enum.map(&elem(&1,0))
-    |> Enum.reduce(%{}, &gen_seq_map(&1, &2, hashkey))
+    # # TODO: parallelizable section (until reduce)
+    # seq_map = 0..(n-1)
+    # |> Enum.to_list()
+    # |> Enum.map(&{&1, gen_seq_hash(&1, hashkey)})
+    # |> Enum.map(&{&1, Utils.File.create(gen_frag_path(elem(&1,1)), frag_size)})
+    # |> Enum.map(&elem(&1,0))
+    # |> Enum.reduce(%{}, &gen_seq_map(&1, &2, hashkey))
 
-    {:ok, seq_map_pid} = FileShredder.Fragmentor.FragStateMap.start_link(seq_map)
-    {:ok, counter_pid} = Agent.start(fn -> 0 end)
+    # # instantiate Agents
+    # {:ok, seq_map_pid} = State.FragMap.start_link(seq_map)
+    # {:ok, counter_pid} = Agent.start(fn -> 0 end)
 
-    #memory_cap = div(Utils.Environment.available_memory(), 64)
-    #pl_part_size = #:erlang.memory[:total]
-
-    frag_paths = file_path
-    |> File.stream!([], pl_part_size)
-    |> FileShredder.Fragmentor.Generator.build_from_stream(file_info, seq_map_pid, counter_pid)
-    #|> recursive function to build fragments out of shards
-    |> Enum.to_list()
-
+    # #memory_cap = div(Utils.Environment.available_memory(), 64)
+    # #pl_part_size = #:erlang.memory[:total]
+  
+    # # write payloads in parallel
+    # frag_paths = file_path
+    # |> File.stream!([], pl_part_size)
+    # |> Utils.Parallel.pooled_map(&FileShredder.Fragmentor.Generator.build_from_stream(&1, file_info, seq_map_pid, counter_pid))
+    # |> Enum.to_list()
 
 
 
@@ -131,7 +154,7 @@ defmodule FileShredder.Fragmentor do
     # |> Utils.Parallel.pooled_map(&finish_frag(&1, hashkey, file_name, file_size))
     # |> Enum.to_list()
 
-    {:ok, frag_paths}
+    #{:ok, frag_paths}
   end
   def fragment(_, _, _), do: :error
 

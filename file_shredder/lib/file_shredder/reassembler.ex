@@ -159,6 +159,7 @@ defmodule FileShredder.Reassembler do
     if @debug do IO.puts( "at write_payload...") end
     payload  = Map.get(fragment, "payload")
     seek_pos = Map.get(fragment, "seq_id") * chunk_size
+    # TODO: Use Utils.File.seek_write instead
     out_file = File.open!(file_name, [:write, :read])
     {:ok, _pos} = :file.position(out_file, seek_pos)
     :file.write(out_file, payload)
