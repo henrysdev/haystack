@@ -94,7 +94,7 @@ defmodule FileShredder.Fragmentor do
     file_name = Path.basename(file_path)
     file_size = Utils.File.size(file_path)
 
-    chunk_size = (Float.ceil(file_size/n) |> trunc()) + 1
+    chunk_size = (Float.ceil(file_size/n) |> trunc())
 
     part_size = calc_part_size(chunk_size, file_size, n) + 1
     parts_per_frag = Float.ceil(chunk_size/part_size) |> trunc()
