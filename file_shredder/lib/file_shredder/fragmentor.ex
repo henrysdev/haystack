@@ -125,12 +125,6 @@ defmodule FileShredder.Fragmentor do
     |> IO.inspect()
     |> Enum.map(&write_part(&1, seq_map))
 
-    #|> Enum.map(&det_seq_id(&1))
-
-    # WHAT IF chunk_size < part_size? 
-    # how many parts per fragment (?)
-    # see how many fit in a chunk_size
-    # chunk_size // 
 
     # file_info = %{
     #   :n              => n,
