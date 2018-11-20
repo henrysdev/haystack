@@ -37,7 +37,7 @@ defmodule FileShredder.Fragmentor do
     for _ <- 0..dummy_count-1, do: dummy(chunk_size)
   end
 
-  defp calc_pl_part_size(chunk_size, file_size, n) do
+  defp calc_part_size(chunk_size, file_size, n) do
     mem_available = div(Utils.Environment.available_memory(), 64) # approx quarter of RAM
     mem_per_frag = 4 #div(mem_available, n)
     cond do
@@ -63,16 +63,26 @@ defmodule FileShredder.Fragmentor do
     to_string(:string.chars(0, part_size-1)) |> Utils.Crypto.pad(part_size)
   end
 
-  defp retrieve_pload(in_file, seq_id, pl_part_size, file_size) do
-    IO.inspect seq_id
+  defp retrieve_pload(in_file, src_pos, part_size, file_size) do
+    IO.inspect src_pos, label: "src_pos"
     cond do
-      file_size > seq_id * pl_part_size -> Utils.File.seek_read(in_file, seq_id, pl_part_size)
-      true -> make_dummy_part(pl_part_size)
+      file_size > src_pos -> Utils.File.seek_read(in_file, src_pos, part_size)
+      true -> make_dummy_part(part_size)
     end
   end
 
-  defp det_seq_id({pload, seek_pos}) do
-    seq_id = div(part_id, parts_per_frag)
+  defp calc_total_parts(file_size, part_size, n) do
+    total_parts = max(n, Float.ceil(file_size/part_size) |> trunc())
+    case rem(total_parts, n) do
+      0 -> total_parts
+      _ -> (div(total_parts, n) + 1) * n
+    end
+  end
+
+  defp det_dest({payload, src_pos}, bytes_per_frag) do
+    seq_id = div(src_pos, bytes_per_frag)
+    write_pos = rem(src_pos, bytes_per_frag)
+    { payload, seq_id, write_pos }
   end
 
   def fragment(file_path, n, password) when n > 1 do
@@ -85,23 +95,25 @@ defmodule FileShredder.Fragmentor do
     partial_pad = rem(padding, (chunk_size - 1))
     dummy_count = div((padding - partial_pad), (chunk_size - 1))
 
-    pl_part_size = calc_pl_part_size(chunk_size, file_size, n)
-    parts_per_frag = Float.ceil(chunk_size/pl_part_size) |> trunc()
-    frag_size = (parts_per_frag * pl_part_size) + @hash_size + @hash_size + @max_file_size_int + @max_file_name_size
-
-    # IO.inspect file_size, label: "file_size"
-    # IO.inspect n, label: "n"
-    # IO.inspect pl_part_size, label: "pl_part_size"
-    # IO.inspect chunk_size, label: "chunk_size  "
-    # IO.inspect frag_size, label: "frag_size  "
+    part_size = calc_part_size(chunk_size, file_size, n)
+    parts_per_frag = Float.ceil(chunk_size/part_size) |> trunc()
+    IO.inspect parts_per_frag, label: "parts_per_frag"
+    frag_size = (parts_per_frag * part_size) + @hash_size + @hash_size + @max_file_size_int + @max_file_name_size
 
     in_file = File.open!(file_path)
 
-    Enum.map(0..n-1, fn x -> pl_part_size * x end)
-    |> Enum.map(&{retrieve_pload(in_file, &1, pl_part_size, file_size), &1})
-    |> Enum.map(&det_seq_id(&1))
+    total_parts = calc_total_parts(file_size, part_size, n)
 
-    # WHAT IF chunk_size < pl_part_size? 
+    bytes_per_frag = parts_per_frag * part_size
+
+    Enum.map(0..total_parts-1, fn x -> part_size * x end)
+    |> Enum.map(&{retrieve_pload(in_file, &1, part_size, file_size), &1})
+    |> Enum.map(&det_dest(&1, bytes_per_frag))
+    |> IO.inspect()
+
+    #|> Enum.map(&det_seq_id(&1))
+
+    # WHAT IF chunk_size < part_size? 
     # how many parts per fragment (?)
     # see how many fit in a chunk_size
     # chunk_size // 
@@ -113,7 +125,7 @@ defmodule FileShredder.Fragmentor do
     #   :file_size      => file_size,
     #   :chunk_size     => chunk_size,
     #   :dummy_count    => dummy_count,
-    #   :pl_part_size   => pl_part_size,
+    #   :part_size   => part_size,
     #   :parts_per_frag => parts_per_frag,
     # }
 
@@ -130,11 +142,11 @@ defmodule FileShredder.Fragmentor do
     # {:ok, counter_pid} = Agent.start(fn -> 0 end)
 
     # #memory_cap = div(Utils.Environment.available_memory(), 64)
-    # #pl_part_size = #:erlang.memory[:total]
+    # #part_size = #:erlang.memory[:total]
   
     # # write payloads in parallel
     # frag_paths = file_path
-    # |> File.stream!([], pl_part_size)
+    # |> File.stream!([], part_size)
     # |> Utils.Parallel.pooled_map(&FileShredder.Fragmentor.Generator.build_from_stream(&1, file_info, seq_map_pid, counter_pid))
     # |> Enum.to_list()
 
