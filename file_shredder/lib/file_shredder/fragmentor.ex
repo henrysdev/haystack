@@ -60,14 +60,14 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp make_dummy_part(part_size) do
-    to_string(:string.chars(0, part_size-1)) |> Utils.Crypto.pad(part_size)
+    to_string(:string.chars(0, part_size))
   end
 
   defp retrieve_pload(in_file, src_pos, part_size, file_size) do
     IO.inspect src_pos, label: "src_pos"
     cond do
-      file_size > src_pos -> Utils.File.seek_read(in_file, src_pos, part_size)
-      true -> make_dummy_part(part_size)
+      file_size > src_pos -> Utils.File.seek_read(in_file, src_pos, part_size-1)
+      true -> make_dummy_part(part_size-1)
     end
   end
 
@@ -85,29 +85,31 @@ defmodule FileShredder.Fragmentor do
     { payload, seq_id, write_pos }
   end
 
+  defp pad_payload(pload, part_size) do
+    IO.inspect Utils.Crypto.pad(pload, part_size)
+  end
+
   def fragment(file_path, n, password) when n > 1 do
     hashkey = Utils.Crypto.gen_key(password)
     file_name = Path.basename(file_path)
     file_size = Utils.File.size(file_path)
 
     chunk_size = (Float.ceil(file_size/n) |> trunc()) + 1
-    padding = (n * (chunk_size - 1)) - file_size
-    partial_pad = rem(padding, (chunk_size - 1))
-    dummy_count = div((padding - partial_pad), (chunk_size - 1))
 
-    part_size = calc_part_size(chunk_size, file_size, n)
+    part_size = calc_part_size(chunk_size, file_size, n) + 1
     parts_per_frag = Float.ceil(chunk_size/part_size) |> trunc()
     IO.inspect parts_per_frag, label: "parts_per_frag"
     frag_size = (parts_per_frag * part_size) + @hash_size + @hash_size + @max_file_size_int + @max_file_name_size
-
-    in_file = File.open!(file_path)
 
     total_parts = calc_total_parts(file_size, part_size, n)
 
     bytes_per_frag = parts_per_frag * part_size
 
-    Enum.map(0..total_parts-1, fn x -> part_size * x end)
+    in_file = File.open!(file_path)
+
+    Enum.map(0..total_parts-1, fn x -> (part_size-1) * x end)
     |> Enum.map(&{retrieve_pload(in_file, &1, part_size, file_size), &1})
+    |> Enum.map(&{pad_payload(elem(&1,0), part_size), elem(&1,1)})
     |> Enum.map(&det_dest(&1, bytes_per_frag))
     |> IO.inspect()
 
