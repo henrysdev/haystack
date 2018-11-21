@@ -79,18 +79,18 @@ defmodule FileShredder.Fragmentor do
     end
   end
 
-  defp det_dest({payload, src_pos}, bytes_per_frag) do
+  defp det_dest(payload, src_pos, bytes_per_frag) do
     IO.inspect bytes_per_frag, label: "bytes_per_frag"
     seq_id = div(src_pos, bytes_per_frag)
     write_pos = rem(src_pos, bytes_per_frag)
-    { payload, seq_id, write_pos }
+    {seq_id, write_pos}
   end
 
   defp pad_payload(pload, part_size) do
     Utils.Crypto.pad(pload, part_size)
   end
 
-  defp write_part({partition, seq_id, write_pos}, seq_map) do
+  defp write_part(partition, seq_id, write_pos, seq_map) do
     seq_hash = Map.get(seq_map, seq_id) |> Base.encode16
     frag_file = File.open!("debug/out/#{seq_hash}.frg", [:write, :read])
     resp = Utils.File.seek_write(frag_file, write_pos, partition)
@@ -101,6 +101,7 @@ defmodule FileShredder.Fragmentor do
     file_name = Path.basename(file_path)
     file_size = Utils.File.size(file_path)
 
+    # size parameters
     chunk_size = (Float.ceil(file_size/n) |> trunc())
     part_size = calc_part_size(chunk_size, file_size, n) + 1
     parts_per_frag = Float.ceil(chunk_size/part_size) |> trunc()
@@ -108,46 +109,28 @@ defmodule FileShredder.Fragmentor do
     total_parts = calc_total_parts(file_size, part_size, n)
     bytes_per_frag = parts_per_frag * (part_size - 1)
 
-
     seq_map = 0..(n-1)
     |> Enum.to_list()
-    |> Enum.map(&{&1, gen_seq_hash(&1, hashkey)})
-    |> Enum.map(&{&1, Utils.File.create(gen_frag_path(elem(&1,1)), frag_size)})
-    |> Enum.map(&elem(&1,0))
+    |> Enum.map(fn seq_id -> 
+      {seq_id, gen_seq_hash(seq_id, hashkey)} end)
+    |> Enum.map(fn {seq_id, seq_hash} -> 
+      {seq_id, seq_hash, gen_frag_path(seq_hash)} end)
+    |> Enum.map(fn {seq_id, seq_hash, frag_path} -> 
+      {seq_id, seq_hash, Utils.File.create(frag_path, frag_size)} end)
+    |> Enum.map(fn {seq_id, seq_hash, _ok } ->
+      {seq_id, seq_hash} end)
     |> Enum.reduce(%{}, &gen_seq_map(&1, &2, hashkey))
 
     in_file = File.open!(file_path)
-
     Enum.map(0..total_parts-1, fn x -> (part_size-1) * x end)
-    |> Enum.map(&{retrieve_pload(in_file, &1, part_size, file_size), &1})
-    |> Enum.map(&{pad_payload(elem(&1,0), part_size), elem(&1,1)})
-    |> Enum.map(&det_dest(&1, bytes_per_frag))
-    |> IO.inspect()
-    |> Enum.map(&write_part(&1, seq_map))
-
-
-    # file_info = %{
-    #   :n              => n,
-    #   :hashkey        => hashkey,
-    #   :file_name      => file_name, 
-    #   :file_size      => file_size,
-    #   :chunk_size     => chunk_size,
-    #   :dummy_count    => dummy_count,
-    #   :part_size   => part_size,
-    #   :parts_per_frag => parts_per_frag,
-    # }
-
-    # # TODO: parallelizable section (until reduce)
-    # seq_map = 0..(n-1)
-    # |> Enum.to_list()
-    # |> Enum.map(&{&1, gen_seq_hash(&1, hashkey)})
-    # |> Enum.map(&{&1, Utils.File.create(gen_frag_path(elem(&1,1)), frag_size)})
-    # |> Enum.map(&elem(&1,0))
-    # |> Enum.reduce(%{}, &gen_seq_map(&1, &2, hashkey))
-
-    # # instantiate Agents
-    # {:ok, seq_map_pid} = State.FragMap.start_link(seq_map)
-    # {:ok, counter_pid} = Agent.start(fn -> 0 end)
+    |> Enum.map(fn src_pos -> 
+      {src_pos, retrieve_pload(in_file, src_pos, part_size, file_size)} end)
+    |> Enum.map(fn {src_pos, pl_partition} -> 
+      {src_pos, pad_payload(pl_partition, part_size)} end)
+    |> Enum.map(fn {src_pos, pl_partition} ->
+      {pl_partition, det_dest(pl_partition, src_pos, bytes_per_frag)} end)
+    |> Enum.map(fn {pl_partition, {seq_id, write_pos}} -> 
+      write_part(pl_partition, seq_id, write_pos, seq_map) end)
 
     # #memory_cap = div(Utils.Environment.available_memory(), 64)
     # #part_size = #:erlang.memory[:total]
@@ -234,7 +217,7 @@ defmodule FileShredder.Fragmentor do
     }
   end
 
-  defp write_out({ fragment, seq_hash }) do
+  defp write_out(fragment, seq_hash) do
     if @debug do IO.puts("write_out...") end
     file_path = gen_frag_path
     Utils.File.write(file_path, fragment)
