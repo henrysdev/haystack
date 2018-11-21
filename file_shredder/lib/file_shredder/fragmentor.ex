@@ -73,7 +73,8 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp calc_total_parts(file_size, part_size, n) do
-    total_parts = max(n, Float.ceil(file_size/part_size) |> trunc())
+    total_parts = max(n, Float.ceil(file_size/(part_size-1)) |> trunc())
+    IO.inspect total_parts, label: "total_parts"
     case rem(total_parts, n) do
       0 -> total_parts
       _ -> (div(total_parts, n) + 1) * n
@@ -92,6 +93,8 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp write_part(partition, seq_id, write_pos, seq_map_pid) do
+    IO.inspect seq_id, label: "seq_id"
+    IO.inspect partition, label: "partition"
     seq_hash = State.Map.get(seq_map_pid, seq_id) |> Base.encode16
     frag_file = File.open!("debug/out/#{seq_hash}.frg", [:write, :read])
     resp = Utils.File.seek_write(frag_file, write_pos, partition)
@@ -127,9 +130,10 @@ defmodule FileShredder.Fragmentor do
     # calculate fragment and paylaod partition parameters
     chunk_size = (Float.ceil(file_size/n) |> trunc())
     part_size = calc_part_size(chunk_size, file_size, n) + 1
-    parts_per_frag = Float.ceil(chunk_size/part_size) |> trunc()
+    parts_per_frag = Float.ceil(chunk_size/(part_size-1)) |> trunc()
     frag_size = (parts_per_frag * part_size) + @hash_size + @hash_size + @max_file_size_int + @max_file_name_size + @max_part_size
     total_parts = calc_total_parts(file_size, part_size, n)
+    IO.inspect total_parts, label: "total_parts"
     bytes_per_frag = parts_per_frag * (part_size - 1)
 
     # calculate field position parameters
@@ -138,16 +142,15 @@ defmodule FileShredder.Fragmentor do
     seq_hash_pos  = file_size_pos - @hash_size
     part_size_pos = seq_hash_pos - @max_part_size
 
-    # TODO: make stateful agent map (don't have to copy this to every thread!)
+    # initialize position map agent
     pos_map = %{
       :file_size => file_size_pos,
       :file_name => file_name_pos,
       :seq_hash  => seq_hash_pos,
       :part_size => part_size_pos
     }
-
-    # initialize position map agent
     {:ok, pos_map_pid} = State.Map.start_link(pos_map)
+
     # initialize (empty) sequence map agent
     {:ok, seq_map_pid} = State.Map.start_link()
 
@@ -172,10 +175,6 @@ defmodule FileShredder.Fragmentor do
     |> Enum.map(fn {seq_id, field_map, frag_file} -> 
       {seq_id, write_fields(frag_file, field_map, pos_map)} end)
 
-    # |> Enum.map(fn {seq_id, seq_hash, frag_path, _ok} ->
-    #   {seq_id, seq_hash} end)
-    # |> Enum.reduce(%{}, &gen_seq_map(&1, &2, hashkey))
-
     # chunk target file into payload partitions and write out to fragment files
     in_file = File.open!(file_path)
     Enum.map(0..total_parts-1, fn x -> (part_size-1) * x end)
@@ -183,6 +182,7 @@ defmodule FileShredder.Fragmentor do
       {src_pos, retrieve_pload(in_file, src_pos, part_size, file_size)} end)
     |> Enum.map(fn {src_pos, pl_partition} -> 
       {src_pos, pad_payload(pl_partition, part_size)} end)
+    |> IO.inspect()
     |> Enum.map(fn {src_pos, pl_partition} ->
       {pl_partition, det_dest(pl_partition, src_pos, bytes_per_frag)} end)
     |> Enum.map(fn {pl_partition, {seq_id, write_pos}} -> 
