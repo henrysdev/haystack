@@ -96,25 +96,27 @@ defmodule FileShredder.Reassembler do
     Path.dirname(dirpath) <> "/" <> seq_hash  <> ".frg"
   end
 
-  defp deserialize_fields(frag_file, frag_size, hashkey) do
+  defp deserialize_fields(frag_file, frag_size, pos_map_pid) do
     # TODO: find a clean way to manage these magic numbers...
     if @debug do IO.puts( "at deserialize_fields...") end
-
-    file_size_pos = frag_size - @max_file_size_int
-    file_name_pos = file_size_pos - @max_file_name_size
-    part_size_pos = file_name_pos - @max_part_size
+    file_size_pos = State.Map.get(pos_map_pid, :file_size)
+    file_name_pos = State.Map.get(pos_map_pid, :file_name)
+    part_size_pos = State.Map.get(pos_map_pid, :part_size)
 
     fields = %{
-      "file_size" => Utils.File.seek_read(frag_file, file_size_pos, @max_file_size_int)
-        |> Utils.Crypto.decrypt(hashkey),
-      "file_name" => Utils.File.seek_read(frag_file, file_name_pos, @max_file_name_size)
-        |> Utils.Crypto.decrypt(hashkey),
-      "part_size" => Utils.File.seek_read(frag_file, part_size_pos, @max_part_size)
-        |> Utils.Crypto.decrypt(hashkey)
+      :file_size => Utils.File.seek_read(frag_file, file_size_pos, @max_file_size_int),
+      :file_name => Utils.File.seek_read(frag_file, file_name_pos, @max_file_name_size),
+      :part_size => Utils.File.seek_read(frag_file, part_size_pos, @max_part_size)
     }
-
     File.close frag_file
     fields
+  end
+
+  defp decr_field(map, field, hashkey) do
+    if @debug do IO.puts( "at decr_field #{field}...") end
+    cipherdata = Map.get(map, field)
+    plaindata = Utils.Crypto.decrypt(cipherdata, hashkey)
+    Map.put(map, field, plaindata)
   end
 
 
@@ -123,9 +125,23 @@ defmodule FileShredder.Reassembler do
 
     frag_path = gen_seq_hash(0, hashkey) |> gen_frag_path(dirpath)
     frag_size = Utils.File.size(frag_path)
+
+    file_size_pos = frag_size - @max_file_size_int
+    file_name_pos = file_size_pos - @max_file_name_size
+    part_size_pos = file_name_pos - @max_part_size
+    pos_map = %{
+      :file_size => file_size_pos,
+      :file_name => file_name_pos,
+      :part_size => part_size_pos
+    }
+    {:ok, pos_map_pid} = State.Map.start_link(pos_map)
+
     frag_file = File.open!(frag_path)
-    fields = deserialize_fields(frag_file, frag_size, hashkey)
-    IO.inspect fields, label: "fields"
+    fields = deserialize_fields(frag_file, frag_size, pos_map_pid)
+    |> decr_field(:file_size, hashkey)
+    |> decr_field(:file_name, hashkey)
+    |> decr_field(:part_size, hashkey)
+    |> IO.inspect()
 
     # init_seq_id = 0
     # init_seq_hash = gen_seq_hash(init_seq_id, hashkey)
