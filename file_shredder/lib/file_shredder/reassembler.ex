@@ -121,10 +121,11 @@ defmodule FileShredder.Reassembler do
   def reassemble(dirpath, password) do
     hashkey = Utils.Crypto.gen_key(password)
 
-    init_frag = gen_seq_hash(0, hashkey) |> gen_frag_path(dirpath)
-    frag_size = Utils.File.size(init_frag)
-
-    IO.inspect (File.open!(init_frag) |> deserialize_fields(frag_size, hashkey))
+    frag_path = gen_seq_hash(0, hashkey) |> gen_frag_path(dirpath)
+    frag_size = Utils.File.size(frag_path)
+    frag_file = File.open!(frag_path)
+    fields = deserialize_fields(frag_file, frag_size, hashkey)
+    IO.inspect fields, label: "fields"
 
     # init_seq_id = 0
     # init_seq_hash = gen_seq_hash(init_seq_id, hashkey)
