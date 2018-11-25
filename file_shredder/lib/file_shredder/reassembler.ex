@@ -97,7 +97,6 @@ defmodule FileShredder.Reassembler do
   end
 
   defp deserialize_fields(frag_file, frag_size, pos_map_pid) do
-    # TODO: find a clean way to manage these magic numbers...
     if @debug do IO.puts( "at deserialize_fields...") end
     file_size_pos = State.Map.get(pos_map_pid, :file_size)
     file_name_pos = State.Map.get(pos_map_pid, :file_name)
@@ -116,9 +115,34 @@ defmodule FileShredder.Reassembler do
     if @debug do IO.puts( "at decr_field #{field}...") end
     cipherdata = Map.get(map, field)
     plaindata = Utils.Crypto.decrypt(cipherdata, hashkey)
-    Map.put(map, field, plaindata)
+    integer_rep = Integer.parse(plaindata)
+    case integer_rep do
+      :error   -> Map.put(map, field, plaindata)
+      {int, _} -> Map.put(map, field, int)
+    end
   end
 
+  defp iter_frag_seq(seq_id, hashkey, dirpath, acc) do
+    seq_hash  = gen_seq_hash(seq_id, hashkey)
+    frag_path = seq_hash |> gen_frag_path(dirpath)
+    case File.exists? frag_path do
+      true  -> iter_frag_seq(seq_id + 1, hashkey, dirpath, [{seq_id, frag_path} | acc])
+      false -> acc
+    end
+  end
+
+  defp parse_parts(fields_map_pid, seq_id, frag_path) do
+    part_size = State.Map.get(fields_map_pid, :part_size)
+    frag_size = Utils.File.size(frag_path)
+    payload_size = frag_size - @max_file_name_size - @max_file_size_int - @max_part_size
+    part_count = div(payload_size, part_size)
+    # TODO: fan-out parallelism HERE (break into another function?)
+    # determine dest position to write to
+    Enum.map(0..(part_count - 1), fn x -> x * part_size end)
+    |> Enum.map(fn read_pos
+      -> {read_pos, part_size * part_count * seq_id + read_pos} end)
+    |> IO.inspect()
+  end
 
   def reassemble(dirpath, password) do
     hashkey = Utils.Crypto.gen_key(password)
@@ -126,21 +150,25 @@ defmodule FileShredder.Reassembler do
     frag_path = gen_seq_hash(0, hashkey) |> gen_frag_path(dirpath)
     frag_size = Utils.File.size(frag_path)
 
-    file_size_pos = frag_size - @max_file_size_int
-    file_name_pos = file_size_pos - @max_file_name_size
-    part_size_pos = file_name_pos - @max_part_size
+    # initialize position map actor
     pos_map = %{
-      :file_size => file_size_pos,
-      :file_name => file_name_pos,
-      :part_size => part_size_pos
+      :file_size => frag_size - @max_file_size_int,
+      :file_name => frag_size - @max_file_size_int - @max_file_name_size,
+      :part_size => frag_size - @max_file_size_int - @max_file_name_size - @max_part_size
     }
     {:ok, pos_map_pid} = State.Map.start_link(pos_map)
 
+    # initialze fields map actor
     frag_file = File.open!(frag_path)
-    fields = deserialize_fields(frag_file, frag_size, pos_map_pid)
+    fields_map = deserialize_fields(frag_file, frag_size, pos_map_pid)
     |> decr_field(:file_size, hashkey)
     |> decr_field(:file_name, hashkey)
     |> decr_field(:part_size, hashkey)
+    {:ok, fields_map_pid} = State.Map.start_link(fields_map)
+
+    iter_frag_seq(0, hashkey, dirpath, [])
+    |> Enum.map(fn {seq_id, frag_path}
+      -> parse_parts(fields_map_pid, seq_id, frag_path) end)
     |> IO.inspect()
 
     # init_seq_id = 0
@@ -166,15 +194,6 @@ defmodule FileShredder.Reassembler do
     # #|> Enum.map(&reassem(&1, hashkey, file_name, chunk_size))
     # |> Utils.Parallel.pooled_map(&reassem(&1, hashkey, file_name, chunk_size))
   end
-
-  # defp iter_frag_seq(seq_id, hashkey, dirpath, acc) do
-  #   seq_hash  = gen_seq_hash(seq_id, hashkey)
-  #   frag_path = seq_hash |> gen_frag_path(dirpath)
-  #   case File.exists? frag_path do
-  #     true  -> iter_frag_seq(seq_id + 1, hashkey, dirpath, [{frag_path, seq_id, seq_hash} | acc])
-  #     false -> acc
-  #   end
-  # end
 
   # defp reform_frag({fragment, true}, seq_id) do
   #   if @debug do IO.puts( "at reform frag...") end

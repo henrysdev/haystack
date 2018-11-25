@@ -13,8 +13,11 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp calc_part_size(chunk_size, file_size, n) do
-    mem_available = div(Utils.Environment.available_memory(), 64) # approx quarter of RAM
-    mem_per_frag  = div(mem_available, n)
+    #mem_available = div(Utils.Environment.available_memory(), 64) # approx quarter of RAM
+    #IO.inspect mem_available, label: "mem_available"
+    #mem_per_frag  = div(mem_available, n)
+    #IO.inspect mem_per_frag, label: "mem_per_frag"
+    mem_per_frag = 250000
     cond do
       chunk_size < mem_per_frag -> (chunk_size |> round_to_next_mult_of(16)) - 1
       true -> (mem_per_frag |> round_to_next_mult_of(16)) - 1
@@ -39,7 +42,7 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp retrieve_pload(in_file, src_pos, part_size, file_size) do
-    IO.inspect src_pos, label: "src_pos"
+    IO.inspect part_size, label: "part_size"
     cond do
       file_size > src_pos -> Utils.File.seek_read(in_file, src_pos, part_size-1)
       true -> make_dummy_part(part_size-1)
@@ -107,7 +110,7 @@ defmodule FileShredder.Fragmentor do
     part_size = calc_part_size(chunk_size, file_size, n) + 1
     IO.inspect part_size, label: "part_size"
     parts_per_frag = Float.ceil(chunk_size/(part_size-1)) |> trunc()
-    frag_size = (parts_per_frag * part_size) + @hash_size + @max_file_size_int + @max_file_name_size + @max_part_size # + @hash_size # TODO: add HMAC
+    frag_size = (parts_per_frag * part_size) + @max_file_size_int + @max_file_name_size + @max_part_size # + @hash_size # TODO: add HMAC
     total_parts = calc_total_parts(file_size, part_size, n)
     bytes_per_frag = parts_per_frag * (part_size-1)
 
@@ -122,15 +125,11 @@ defmodule FileShredder.Fragmentor do
     #       | file_size (32) |
     # x+160 |________________|
     #
-    file_size_pos = frag_size - @max_file_size_int
-    file_name_pos = file_size_pos - @max_file_name_size
-    part_size_pos = file_name_pos - @max_part_size
-
     # initialize position map actor
     pos_map = %{
-      :file_size => file_size_pos,
-      :file_name => file_name_pos,
-      :part_size => part_size_pos
+      :file_size => frag_size - @max_file_size_int,
+      :file_name => frag_size - @max_file_size_int - @max_file_name_size,
+      :part_size => frag_size - @max_file_size_int - @max_file_name_size - @max_part_size
     }
     {:ok, pos_map_pid} = State.Map.start_link(pos_map)
 
@@ -141,48 +140,48 @@ defmodule FileShredder.Fragmentor do
     0..(n-1)
     |> Enum.to_list()
     # generate seq_hashes
-    |> Enum.map(fn seq_id -> 
-      {seq_id, gen_seq_hash(seq_id, hashkey)} end)
+    |> Enum.map(fn seq_id
+      -> {seq_id, gen_seq_hash(seq_id, hashkey)} end)
     # put seq_id => seq_hash pairs in stateful map
-    |> Enum.map(fn {seq_id, seq_hash} -> 
-      {seq_id, seq_hash, State.Map.put(seq_map_pid, seq_id, seq_hash)} end)
+    |> Enum.map(fn {seq_id, seq_hash}
+      -> {seq_id, seq_hash, State.Map.put(seq_map_pid, seq_id, seq_hash)} end)
     # generate frag_path and add it to tuple
-    |> Enum.map(fn {seq_id, seq_hash, _ok} -> 
-      {seq_id, seq_hash, gen_frag_path(seq_hash)} end)
+    |> Enum.map(fn {seq_id, seq_hash, _ok}
+      -> {seq_id, seq_hash, gen_frag_path(seq_hash)} end)
     # allocate (empty) target fragment file on disk
-    |> Enum.map(fn {seq_id, seq_hash, frag_path} -> 
-      {seq_id, seq_hash, frag_path, Utils.File.create(frag_path, frag_size)} end)
+    |> Enum.map(fn {seq_id, seq_hash, frag_path}
+      -> {seq_id, seq_hash, frag_path, Utils.File.create(frag_path, frag_size)} end)
     # open allocated fragment file
-    |> Enum.map(fn {seq_id, seq_hash, frag_path, _ok} ->
-      {seq_id, seq_hash, File.open!(frag_path, [:read, :write])} end)
+    |> Enum.map(fn {seq_id, seq_hash, frag_path, _ok}
+      -> {seq_id, seq_hash, File.open!(frag_path, [:read, :write])} end)
     # generate fragment fields (file_size, file_name, part_size, seq_hash) and put into a map
-    |> Enum.map(fn {seq_id, seq_hash, frag_file} ->
-      {gen_fields(file_size, file_name, seq_hash, part_size, hashkey), frag_file} end)
+    |> Enum.map(fn {seq_id, seq_hash, frag_file}
+      -> {gen_fields(file_size, file_name, seq_hash, part_size, hashkey), frag_file} end)
     # write out fields to fragment files
-    |> Enum.map(fn {field_map, frag_file} -> 
-      write_fields(frag_file, field_map, pos_map) end)
+    |> Enum.map(fn {field_map, frag_file}
+      -> write_fields(frag_file, field_map, pos_map) end)
 
     in_file = File.open!(file_path)
     
     # chunk target file into payload partitions and write out to fragment files
     Enum.map(0..total_parts-1, fn x -> (part_size-1) * x end)
     # retrieve payload partition at given position in source file and read it into memory
-    |> Enum.map(fn src_pos -> 
-      {src_pos, retrieve_pload(in_file, src_pos, part_size, file_size)} end)
+    |> Enum.map(fn src_pos
+      -> {src_pos, retrieve_pload(in_file, src_pos, part_size, file_size)} end)
     # pad payload retrieved
-    |> Enum.map(fn {src_pos, pl_partition} -> 
-      {src_pos, pl_partition} end)
+    |> Enum.map(fn {src_pos, pl_partition}
+      -> {src_pos, pl_partition} end)
     # |> Enum.map(fn {src_pos, pl_partition} -> 
     #   {src_pos, pad_payload(pl_partition, part_size)} end)
     # determine target fragment seq_id and position to write to in target fragment
-    |> Enum.map(fn {src_pos, pl_partition} ->
-      {pl_partition, det_dest(pl_partition, src_pos, bytes_per_frag)} end)
+    |> Enum.map(fn {src_pos, pl_partition}
+      -> {pl_partition, det_dest(pl_partition, src_pos, bytes_per_frag)} end)
     # encrypt payload partition
-    |> Enum.map(fn {pl_partition, {seq_id, write_pos}} -> 
-      {Utils.Crypto.encrypt(pl_partition, hashkey, part_size), {seq_id, write_pos}} end)
+    |> Enum.map(fn {pl_partition, {seq_id, write_pos}}
+      -> {Utils.Crypto.encrypt(pl_partition, hashkey), {seq_id, write_pos}} end)
     # write out payload partitions to target fragments
-    |> Enum.map(fn {pl_partition, {seq_id, write_pos}} -> 
-      {pl_partition, seq_id, write_part(pl_partition, seq_id, write_pos, seq_map_pid)} end)
+    |> Enum.map(fn {pl_partition, {seq_id, write_pos}}
+      -> {pl_partition, seq_id, write_part(pl_partition, seq_id, write_pos, seq_map_pid)} end)
     # generate hmac for partition
     #|> Enum.map(fn {pl_partition, seq_id, _ok} ->
     #  {gen_hmac(pl_partition, seq_id, hashkey)}
