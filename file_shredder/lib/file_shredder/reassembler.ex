@@ -102,15 +102,13 @@ defmodule FileShredder.Reassembler do
 
     file_size_pos = frag_size - @max_file_size_int
     file_name_pos = file_size_pos - @max_file_name_size
-    seq_hash_pos  = file_size_pos - @hash_size
-    part_size_pos = seq_hash_pos - @max_part_size
+    part_size_pos = file_name_pos - @max_part_size
 
     fields = %{
       "file_size" => Utils.File.seek_read(frag_file, file_size_pos, @max_file_size_int)
         |> Utils.Crypto.decrypt(hashkey),
       "file_name" => Utils.File.seek_read(frag_file, file_name_pos, @max_file_name_size)
         |> Utils.Crypto.decrypt(hashkey),
-      "seq_hash" => Utils.File.seek_read(frag_file, seq_hash_pos,  @hash_size),
       "part_size" => Utils.File.seek_read(frag_file, part_size_pos, @max_part_size)
         |> Utils.Crypto.decrypt(hashkey)
     }

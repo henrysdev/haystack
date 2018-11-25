@@ -76,7 +76,6 @@ defmodule FileShredder.Fragmentor do
     %{
       :file_size => Utils.Crypto.encrypt(file_size|> Integer.to_string(), hashkey, @max_file_size_int),
       :file_name => Utils.Crypto.encrypt(file_name, hashkey, @max_file_name_size),
-      :seq_hash  => seq_hash,
       :part_size => Utils.Crypto.encrypt(part_size|> Integer.to_string(), hashkey, @max_part_size)
     }
   end
@@ -118,23 +117,19 @@ defmodule FileShredder.Fragmentor do
     # x     |________________|
     #       | part_size (32) |
     # x+32  |________________|
-    #       | seq_hash (32)  |
-    # x+64  |________________|
     #       | file_name (96) |
-    # x+160 |________________|
+    # x+128 |________________|
     #       | file_size (32) |
-    # x+192 |________________|
+    # x+160 |________________|
     #
     file_size_pos = frag_size - @max_file_size_int
     file_name_pos = file_size_pos - @max_file_name_size
-    seq_hash_pos  = file_size_pos - @hash_size
-    part_size_pos = seq_hash_pos - @max_part_size
+    part_size_pos = file_name_pos - @max_part_size
 
     # initialize position map actor
     pos_map = %{
       :file_size => file_size_pos,
       :file_name => file_name_pos,
-      :seq_hash  => seq_hash_pos,
       :part_size => part_size_pos
     }
     {:ok, pos_map_pid} = State.Map.start_link(pos_map)
