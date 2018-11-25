@@ -12,8 +12,13 @@ defmodule Utils.Environment do
         |> Kernel.*(1_000_000) # megabytes -> bytes
       {:unix, :darwin} ->
         # TODO: fix parsing...
-        System.cmd("vm_stat", [])
-        4
+        vmstat_str = System.cmd("vm_stat", [])
+        |> elem(0)
+        Regex.run(~r/Pages free:\s+(\d+)/, vmstat_str)
+        |> Enum.reverse()
+        |> List.first()
+        |> String.to_integer()
+        |> Kernel.*(1_000_000)
     end
   end
 
