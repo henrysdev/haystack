@@ -22,7 +22,7 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp gen_seq_hash(seq_id, hashkey) do
-    seq_hash = Utils.Crypto.gen_multi_hash([hashkey, seq_id])
+    Utils.Crypto.gen_multi_hash([hashkey, seq_id])
   end
 
   defp gen_seq_map({seq_id, seq_hash}, acc, hashkey) do
@@ -56,7 +56,6 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp det_dest(payload, src_pos, bytes_per_frag) do
-    IO.inspect bytes_per_frag, label: "bytes_per_frag"
     seq_id = div(src_pos, bytes_per_frag)
     write_pos = rem(src_pos, bytes_per_frag)
     {seq_id, write_pos}
