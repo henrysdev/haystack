@@ -13,11 +13,8 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp calc_part_size(chunk_size, file_size, n) do
-    #mem_available = div(Utils.Environment.available_memory(), 64) # approx quarter of RAM
-    #IO.inspect mem_available, label: "mem_available"
-    #mem_per_frag  = div(mem_available, n)
-    #IO.inspect mem_per_frag, label: "mem_per_frag"
-    mem_per_frag = 250000
+    mem_available = div(Utils.Environment.available_memory(), 64) # approx quarter of RAM
+    mem_per_frag  = div(mem_available, n)
     cond do
       chunk_size < mem_per_frag -> (chunk_size |> round_to_next_mult_of(16)) - 1
       true -> (mem_per_frag |> round_to_next_mult_of(16)) - 1
@@ -29,10 +26,11 @@ defmodule FileShredder.Fragmentor do
   end
 
   defp gen_seq_map({seq_id, seq_hash}, acc, hashkey) do
-    Map.put(acc, seq_id, seq_hash) #gen_seq_hash(seq_id, hashkey))
+    Map.put(acc, seq_id, seq_hash)
   end
 
   defp gen_frag_path(seq_hash) do
+    IO.inspect seq_hash, label: "seq_hash"
     seq_hash = Base.encode16(seq_hash)
     file_path = "debug/out/#{seq_hash}.frg" # TODO dont hardcode path, pass in
   end
@@ -64,10 +62,6 @@ defmodule FileShredder.Fragmentor do
     {seq_id, write_pos}
   end
 
-  defp pad_payload(pload, part_size) do
-    Utils.Crypto.pad(pload, part_size)
-  end
-
   defp write_part(partition, seq_id, write_pos, seq_map_pid) do
     seq_hash = State.Map.get(seq_map_pid, seq_id) |> Base.encode16
     # TODO: dont hardcode path!
@@ -83,10 +77,10 @@ defmodule FileShredder.Fragmentor do
     }
   end
 
-  defp write_fields(frag_file, field_map, pos_map) do
+  defp write_fields(frag_file, field_map, pos_map_pid) do
     Map.keys(field_map)
     |> Enum.map(fn field -> 
-      {Map.get(field_map, field), Map.get(pos_map, field)} end)
+      {Map.get(field_map, field), State.Map.get(pos_map_pid, field)} end)
     |> Enum.map(fn {field_val, write_pos} ->
       Utils.File.seek_write(frag_file, write_pos, field_val) end)
   end
@@ -100,6 +94,75 @@ defmodule FileShredder.Fragmentor do
     hmac = Utils.Crypto.gen_multi_hash(hmac_parts)
   end
 
+  ###### ALLOC AND FIELDS ###### TODO: break into separate module
+  defp alloc_and_fields(seq_id, file_size, file_name, part_size, hashkey, frag_size, pos_map_pid, seq_map_pid) do
+    seq_id
+    |> add_seq_hash(hashkey)
+    |> add_to_seq_map(seq_map_pid)
+    |> add_frag_path()
+    |> allocate_frag(frag_size)
+    |> open_frag()
+    |> gen_frag_fields(file_size, file_name, part_size, hashkey)
+    |> write_frag_fields(pos_map_pid)
+  end
+
+  defp add_seq_hash(seq_id, hashkey) do
+    {seq_id, gen_seq_hash(seq_id, hashkey)}
+  end
+
+  defp add_to_seq_map({seq_id, seq_hash}, seq_map_pid) do
+    {seq_id, seq_hash, State.Map.put(seq_map_pid, seq_id, seq_hash)}
+  end
+
+  defp add_frag_path({seq_id, seq_hash, _ok}) do
+    {seq_id, seq_hash, gen_frag_path(seq_hash)}
+  end
+
+  defp allocate_frag({seq_id, seq_hash, frag_path}, frag_size) do
+    {seq_id, seq_hash, frag_path, Utils.File.create(frag_path, frag_size)}
+  end
+
+  defp open_frag({seq_id, seq_hash, frag_path, _ok}) do
+    {seq_id, seq_hash, File.open!(frag_path, [:read, :write])}
+  end
+
+  defp gen_frag_fields({seq_id, seq_hash, frag_file}, file_size, file_name, part_size, hashkey) do
+    {gen_fields(file_size, file_name, seq_hash, part_size, hashkey), frag_file}
+  end
+
+  defp write_frag_fields({field_map, frag_file}, pos_map_pid) do
+    write_fields(frag_file, field_map, pos_map_pid)
+  end
+  #############################
+
+
+  ###### PROCESS PL PARTS ###### TODO: break into separate module
+  defp process_pl_parts(src_pos, part_size, file_size, bytes_per_frag, file_path, hashkey, seq_map_pid) do
+    in_file = File.open!(file_path)
+    src_pos
+    |> retr_partition(part_size, file_size, in_file)
+    |> add_dest_info(bytes_per_frag)
+    |> encr_part(hashkey)
+    |> write_out_part(seq_map_pid)
+  end
+
+  defp retr_partition(src_pos, part_size, file_size, in_file) do
+    {src_pos, retrieve_pload(in_file, src_pos, part_size, file_size)}
+  end
+  
+  defp add_dest_info({src_pos, pl_partition}, bytes_per_frag) do
+    {pl_partition, det_dest(pl_partition, src_pos, bytes_per_frag)}
+  end 
+
+  defp encr_part({pl_partition, {seq_id, write_pos}}, hashkey) do
+    {Utils.Crypto.encrypt(pl_partition, hashkey), {seq_id, write_pos}}
+  end
+
+  defp write_out_part({pl_partition, {seq_id, write_pos}}, seq_map_pid) do
+    {pl_partition, seq_id, write_part(pl_partition, seq_id, write_pos, seq_map_pid)}
+  end
+  #############################
+
   def fragment(file_path, n, password) when n > 1 do
     hashkey = Utils.Crypto.gen_key(password)
     file_name = Path.basename(file_path)
@@ -110,7 +173,7 @@ defmodule FileShredder.Fragmentor do
     part_size = calc_part_size(chunk_size, file_size, n) + 1
     IO.inspect part_size, label: "part_size"
     parts_per_frag = Float.ceil(chunk_size/(part_size-1)) |> trunc()
-    frag_size = (parts_per_frag * part_size) + @max_file_size_int + @max_file_name_size + @max_part_size # + @hash_size # TODO: add HMAC
+    frag_size = (parts_per_frag * part_size) + @max_file_size_int + @max_file_name_size + @max_part_size # TODO: add HMAC
     total_parts = calc_total_parts(file_size, part_size, n)
     bytes_per_frag = parts_per_frag * (part_size-1)
 
@@ -139,52 +202,13 @@ defmodule FileShredder.Fragmentor do
     # create fragment buffer files and write applicable fields
     0..(n-1)
     |> Enum.to_list()
-    # generate seq_hashes
-    |> Enum.map(fn seq_id
-      -> {seq_id, gen_seq_hash(seq_id, hashkey)} end)
-    # put seq_id => seq_hash pairs in stateful map
-    |> Enum.map(fn {seq_id, seq_hash}
-      -> {seq_id, seq_hash, State.Map.put(seq_map_pid, seq_id, seq_hash)} end)
-    # generate frag_path and add it to tuple
-    |> Enum.map(fn {seq_id, seq_hash, _ok}
-      -> {seq_id, seq_hash, gen_frag_path(seq_hash)} end)
-    # allocate (empty) target fragment file on disk
-    |> Enum.map(fn {seq_id, seq_hash, frag_path}
-      -> {seq_id, seq_hash, frag_path, Utils.File.create(frag_path, frag_size)} end)
-    # open allocated fragment file
-    |> Enum.map(fn {seq_id, seq_hash, frag_path, _ok}
-      -> {seq_id, seq_hash, File.open!(frag_path, [:read, :write])} end)
-    # generate fragment fields (file_size, file_name, part_size, seq_hash) and put into a map
-    |> Enum.map(fn {seq_id, seq_hash, frag_file}
-      -> {gen_fields(file_size, file_name, seq_hash, part_size, hashkey), frag_file} end)
-    # write out fields to fragment files
-    |> Enum.map(fn {field_map, frag_file}
-      -> write_fields(frag_file, field_map, pos_map) end)
-
-    in_file = File.open!(file_path)
+    |> Utils.Parallel.pooled_map(&alloc_and_fields(&1, file_size, file_name, part_size, hashkey, frag_size, pos_map_pid, seq_map_pid))
+    |> IO.inspect()
     
     # chunk target file into payload partitions and write out to fragment files
     Enum.map(0..total_parts-1, fn x -> (part_size-1) * x end)
-    # retrieve payload partition at given position in source file and read it into memory
-    |> Enum.map(fn src_pos
-      -> {src_pos, retrieve_pload(in_file, src_pos, part_size, file_size)} end)
-    # pad payload retrieved
-    |> Enum.map(fn {src_pos, pl_partition}
-      -> {src_pos, pl_partition} end)
-    # |> Enum.map(fn {src_pos, pl_partition} -> 
-    #   {src_pos, pad_payload(pl_partition, part_size)} end)
-    # determine target fragment seq_id and position to write to in target fragment
-    |> Enum.map(fn {src_pos, pl_partition}
-      -> {pl_partition, det_dest(pl_partition, src_pos, bytes_per_frag)} end)
-    # encrypt payload partition
-    |> Enum.map(fn {pl_partition, {seq_id, write_pos}}
-      -> {Utils.Crypto.encrypt(pl_partition, hashkey), {seq_id, write_pos}} end)
-    # write out payload partitions to target fragments
-    |> Enum.map(fn {pl_partition, {seq_id, write_pos}}
-      -> {pl_partition, seq_id, write_part(pl_partition, seq_id, write_pos, seq_map_pid)} end)
-    # generate hmac for partition
-    #|> Enum.map(fn {pl_partition, seq_id, _ok} ->
-    #  {gen_hmac(pl_partition, seq_id, hashkey)}
+    |> Utils.Parallel.pooled_map(&process_pl_parts(&1, part_size, file_size, bytes_per_frag, file_path, hashkey, seq_map_pid))
+    |> IO.inspect()
 
     # #memory_cap = div(Utils.Environment.available_memory(), 64)
     # #part_size = #:erlang.memory[:total]
