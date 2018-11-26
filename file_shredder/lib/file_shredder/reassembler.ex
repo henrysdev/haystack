@@ -182,7 +182,6 @@ defmodule FileShredder.Reassembler do
     File.close target_file
     next
   end
-
   #############################
 
 
@@ -217,64 +216,6 @@ defmodule FileShredder.Reassembler do
     iter_frag_seq(0, hashkey, dirpath, [])
     |> Enum.map(&transfer_frag(&1, fields_map_pid, hashkey, target_path, file_size))
 
-    # init_seq_id = 0
-    # init_seq_hash = gen_seq_hash(init_seq_id, hashkey)
-
-    # init_frag_path = gen_frag_path(init_seq_hash, dirpath)
-    # {init_frag_path, true} = {init_frag_path, init_seq_id, init_seq_hash} 
-    # |> reassem(hashkey, :init)
-
-    # init_frag = init_frag_path
-    # |> decr_field("file_name", hashkey)
-    # |> decr_field("file_size", hashkey)
-    # |> decr_field("payload", hashkey)
-
-    # chunk_size = byte_size(Map.get(init_frag, "payload")) - 1
-
-    # file_name = Map.get(init_frag, "file_name")
-    # {file_size, _} = Map.get(init_frag, "file_size") |> Integer.parse()
-    # Utils.File.create(file_name, file_size)
-
-    # iter_frag_seq(0, hashkey, dirpath, [])
-    # |> Stream.map(&{&1, dummy_frag?(&1, file_size, chunk_size)})
-    # #|> Enum.map(&reassem(&1, hashkey, file_name, chunk_size))
-    # |> Utils.Parallel.pooled_map(&reassem(&1, hashkey, file_name, chunk_size))
   end
-
-  # defp reform_frag({fragment, true}, seq_id) do
-  #   if @debug do IO.puts( "at reform frag...") end
-  #   %{ 
-  #     "seq_id"   => seq_id, 
-  #     "payload"  => Map.get(fragment, "payload"),
-  #   }
-  # end
-  # defp reform_frag({_fragment, _}, _seq_id) do
-  #   IO.puts "Invalid HMAC, exiting..."
-  #   System.halt(0)
-  # end
-
-  # defp decr_field(map, field, hashkey) do
-  #   if @debug do IO.puts( "at decr_field #{field}...") end
-  #   cipherdata = Map.get(map, field)
-  #   plaindata = Utils.Crypto.decrypt(cipherdata, hashkey)
-  #   Map.put(map, field, plaindata)
-  # end
-
-  # defp unpad_payload(fragment) do
-  #   if @debug do IO.puts( "at unpad_payload...") end
-  #   payload = Map.get(fragment, "payload") |> Utils.Crypto.unpad()
-  #   Map.put(fragment, "payload", payload)
-  # end
-
-  # defp write_payload(fragment, file_name, chunk_size) do
-  #   if @debug do IO.puts( "at write_payload...") end
-  #   payload  = Map.get(fragment, "payload")
-  #   seek_pos = Map.get(fragment, "seq_id") * chunk_size
-  #   # TODO: Use Utils.File.seek_write instead
-  #   out_file = File.open!(file_name, [:write, :read])
-  #   {:ok, _pos} = :file.position(out_file, seek_pos)
-  #   :file.write(out_file, payload)
-  #   file_name
-  # end
 
 end

@@ -174,7 +174,8 @@ defmodule FileShredder.Fragmentor do
 
   defp write_out_part({pl_partition, {seq_id, write_pos}}, seq_map_pid) do
     IO.puts "at write_out_part"
-    {pl_partition, seq_id, write_part(pl_partition, seq_id, write_pos, seq_map_pid)}
+    write_part(pl_partition, seq_id, write_pos, seq_map_pid)
+    #{pl_partition, seq_id, write_part(pl_partition, seq_id, write_pos, seq_map_pid)}
   end
   #############################
 
@@ -182,17 +183,16 @@ defmodule FileShredder.Fragmentor do
     hashkey = Utils.Crypto.gen_key(password)
     file_name = Path.basename(file_path)
     file_size = Utils.File.size(file_path)
-    IO.inspect "here 1"
+
     # calculate fragment and paylaod partition parameters
     chunk_size = (Float.ceil(file_size/n) |> trunc())
     part_size = calc_part_size(chunk_size, file_size, n) + 1
-    IO.inspect part_size, label: "part_size"
     parts_per_frag = Float.ceil(chunk_size/(part_size-1)) |> trunc()
     frag_size = (parts_per_frag * part_size) + @max_file_size_int + @max_file_name_size + @max_part_size # TODO: add HMAC
     total_parts = calc_total_parts(file_size, part_size, n)
     bytes_per_frag = parts_per_frag * (part_size-1)
 
-
+    # calculate pos_map
     pos_map = %{
       :file_size => frag_size - @max_file_size_int,
       :file_name => frag_size - @max_file_size_int - @max_file_name_size,
@@ -206,15 +206,12 @@ defmodule FileShredder.Fragmentor do
     # create fragment buffer files and write applicable fields
     0..(n-1)
     |> Enum.to_list()
-    #|> Enum.map(&alloc_and_fields(&1, file_size, file_name, part_size, hashkey, frag_size, pos_map_pid, seq_map_pid))
     |> Utils.Parallel.pooled_map(&alloc_and_fields(&1, file_size, file_name, part_size, hashkey, frag_size, pos_map_pid, seq_map_pid))
-    #|> IO.inspect()
-    
+
     # chunk target file into payload partitions and write out to fragment files
-    Enum.map(0..total_parts-1, fn x -> (part_size-1) * x end)
-    #|> Enum.map(&process_pl_parts(&1, part_size, file_size, bytes_per_frag, file_path, hashkey, seq_map_pid))
+    frag_paths = Enum.map(0..total_parts-1, fn x -> (part_size-1) * x end)
     |> Utils.Parallel.pooled_map(&process_pl_parts(&1, part_size, file_size, bytes_per_frag, file_path, hashkey, seq_map_pid))
-    #|> IO.inspect()
+    {:ok, frag_paths}
   end
   def fragment(_, _, _), do: :error
 
