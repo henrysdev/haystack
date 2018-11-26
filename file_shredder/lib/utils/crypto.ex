@@ -22,9 +22,6 @@ defmodule Utils.Crypto do
   end
 
   def encrypt(data, key, pad_size \\ 32) do
-    # IO.inspect pad_size, label: "pad_size"
-    # IO.inspect byte_size(data), label: "data"
-    # IO.inspect byte_size(key), label: "key"
     :crypto.block_encrypt(:aes_cbc, key, @zero_iv, pad(data, pad_size))
   end
 

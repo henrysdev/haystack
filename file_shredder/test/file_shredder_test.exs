@@ -14,6 +14,8 @@ defmodule FileShredderTest do
   @frag_dir  "debug/out/*.frg"
   @password "pword"
 
+  @done_dir "debug/done/"
+
 
   setup do
     Utils.File.delete_dir(@frag_dir)
@@ -56,7 +58,7 @@ defmodule FileShredderTest do
     n = 3
     FileShredder.fragment(file_name, n, @password)
     assert n == FileShredder.reassemble(@frag_dir, @password) |> length()
-    assert false == Utils.File.diff?(file_name, Path.basename(file_name))
+    assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
 
 
@@ -74,7 +76,7 @@ defmodule FileShredderTest do
     n = div(Utils.File.size(file_name), 2)
     FileShredder.fragment(file_name, n, @password)
     assert n == FileShredder.reassemble(@frag_dir, @password) |> length()
-    assert false == Utils.File.diff?(file_name, Path.basename(file_name))
+    assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
 
 
@@ -92,7 +94,7 @@ defmodule FileShredderTest do
     n = div(Utils.File.size(file_name),2) + 1
     FileShredder.fragment(file_name, n, @password)
     assert n == FileShredder.reassemble(@frag_dir, @password) |> length()
-    assert false == Utils.File.diff?(file_name, Path.basename(file_name))
+    assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
 
 
@@ -110,7 +112,7 @@ defmodule FileShredderTest do
     n = Utils.File.size(file_name)
     FileShredder.fragment(file_name, n, @password)
     assert n == FileShredder.reassemble(@frag_dir, @password) |> length()
-    assert false == Utils.File.diff?(file_name, Path.basename(file_name))
+    assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
 
 
@@ -128,7 +130,7 @@ defmodule FileShredderTest do
     n = Utils.File.size(file_name) + 1
     FileShredder.fragment(file_name, n, @password)
     assert n == FileShredder.reassemble(@frag_dir, @password) |> length()
-    assert false == Utils.File.diff?(file_name, Path.basename(file_name))
+    assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
 
 
