@@ -131,18 +131,63 @@ defmodule FileShredder.Reassembler do
     end
   end
 
-  defp parse_parts(fields_map_pid, seq_id, frag_path) do
+
+  ###### TRANSFER FRAGMENTS ###### TODO: break into separate module
+  defp transfer_frag({seq_id, frag_path}, fields_map_pid, hashkey, target_path, file_size) do
     part_size = State.Map.get(fields_map_pid, :part_size)
     frag_size = Utils.File.size(frag_path)
     payload_size = frag_size - @max_file_name_size - @max_file_size_int - @max_part_size
     part_count = div(payload_size, part_size)
     # TODO: fan-out parallelism HERE (break into another function?)
-    # determine dest position to write to
     Enum.map(0..(part_count - 1), fn x -> x * part_size end)
-    |> Enum.map(fn read_pos
-      -> {read_pos, part_size * part_count * seq_id + read_pos} end)
-    |> IO.inspect()
+    # TODO: replace with fanned-out pooled map
+    |> Enum.map(&process_pl_parts(&1, seq_id, hashkey, frag_path, target_path, part_size, part_count, file_size))
   end
+
+  defp process_pl_parts(src_pos, seq_id, hashkey, frag_path, target_path, part_size, part_count, file_size) 
+    when src_pos + seq_id * part_size * part_count > file_size do
+      nil
+    # src_pos
+    # |> dest_pos_offset(seq_id, part_size, part_count)
+    # |> get_partition(frag_path, part_size)
+    # |> decr_partition(hashkey)
+    # |> write_to_dest(target_path)
+    # |> IO.inspect
+  end
+  
+  defp process_pl_parts(src_pos, seq_id, hashkey, frag_path, target_path, part_size, part_count, file_size) do
+    src_pos
+    |> dest_pos_offset(seq_id, part_size, part_count)
+    |> get_partition(frag_path, part_size)
+    |> decr_partition(hashkey)
+    |> write_to_dest(target_path)
+    |> IO.inspect
+  end
+
+  defp dest_pos_offset(src_pos, seq_id, part_size, part_count) do
+    {src_pos, max(0,(part_size * part_count * seq_id) + src_pos - 1) }
+  end
+
+  defp get_partition({src_pos, dest_pos}, frag_path, part_size) do
+    frag_file = File.open!(frag_path, [:read])
+    next = {Utils.File.seek_read(frag_file, src_pos, part_size), dest_pos}
+    File.close frag_file
+    next
+  end
+
+  defp decr_partition({partition, dest_pos}, hashkey) do
+    {Utils.Crypto.decrypt(partition, hashkey), dest_pos}
+  end
+
+  defp write_to_dest({partition, dest_pos}, target_path) do
+    target_file = File.open!(target_path, [:read, :write])
+    next = Utils.File.seek_write(target_file, dest_pos, partition)
+    File.close target_file
+    next
+  end
+
+  #############################
+
 
   def reassemble(dirpath, password) do
     hashkey = Utils.Crypto.gen_key(password)
@@ -166,10 +211,14 @@ defmodule FileShredder.Reassembler do
     |> decr_field(:part_size, hashkey)
     {:ok, fields_map_pid} = State.Map.start_link(fields_map)
 
+    file_name = State.Map.get(fields_map_pid, :file_name)
+    file_size = State.Map.get(fields_map_pid, :file_size)
+    target_path = "debug/done/#{file_name}"
+    Utils.File.create(target_path, file_size)
+
+    # read each partition from each fragment and write them to the target file
     iter_frag_seq(0, hashkey, dirpath, [])
-    |> Enum.map(fn {seq_id, frag_path}
-      -> parse_parts(fields_map_pid, seq_id, frag_path) end)
-    |> IO.inspect()
+    |> Enum.map(&transfer_frag(&1, fields_map_pid, hashkey, target_path, file_size))
 
     # init_seq_id = 0
     # init_seq_hash = gen_seq_hash(init_seq_id, hashkey)
