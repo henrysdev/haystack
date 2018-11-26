@@ -139,20 +139,15 @@ defmodule FileShredder.Reassembler do
     payload_size = frag_size - @max_file_name_size - @max_file_size_int - @max_part_size
     part_count = div(payload_size, part_size)
     # TODO: fan-out parallelism HERE (break into another function?)
+    IO.inspect part_size, label: "part_size"
     Enum.map(0..(part_count - 1), fn x -> x * part_size end)
     # TODO: replace with fanned-out pooled map
     |> Enum.map(&process_pl_parts(&1, seq_id, hashkey, frag_path, target_path, part_size, part_count, file_size))
   end
 
   defp process_pl_parts(src_pos, seq_id, hashkey, frag_path, target_path, part_size, part_count, file_size) 
-    when src_pos + seq_id * part_size * part_count > file_size do
+    when src_pos + seq_id * (part_size-1) * part_count > file_size do
       nil
-    # src_pos
-    # |> dest_pos_offset(seq_id, part_size, part_count)
-    # |> get_partition(frag_path, part_size)
-    # |> decr_partition(hashkey)
-    # |> write_to_dest(target_path)
-    # |> IO.inspect
   end
   
   defp process_pl_parts(src_pos, seq_id, hashkey, frag_path, target_path, part_size, part_count, file_size) do
@@ -165,7 +160,9 @@ defmodule FileShredder.Reassembler do
   end
 
   defp dest_pos_offset(src_pos, seq_id, part_size, part_count) do
-    {src_pos, max(0,(part_size * part_count * seq_id) + src_pos - 1) }
+    dest_pos = (part_size-1) * part_count * seq_id + src_pos
+    IO.inspect dest_pos, label: "dest_pos"
+    {src_pos, dest_pos}
   end
 
   defp get_partition({src_pos, dest_pos}, frag_path, part_size) do
