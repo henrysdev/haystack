@@ -147,7 +147,7 @@ defmodule FileShredder.Reassembler do
         :chunk_size => chunk_size,
         :file_name  => file_name,
         :frag_size  => frag_size,
-        :out_dir    => out_dir |> Path.dirname()
+        :out_dir    => Path.dirname(out_dir) <> "/"
       }
     )
 
@@ -186,7 +186,7 @@ defmodule FileShredder.Reassembler do
     if @debug do IO.puts( "at write_payload...") end
     payload  = Map.get(fragment, "payload")
     seek_pos = Map.get(fragment, "seq_id") * chunk_size
-    out_path = out_dir <> "/" <> file_name
+    out_path = out_dir <> file_name
     out_file = File.open!(out_path, [:write, :read])
     {:ok, _pos} = :file.position(out_file, seek_pos)
     :file.write(out_file, payload)
