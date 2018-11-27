@@ -35,6 +35,7 @@ defmodule FileShredder.Reassembler do
     file_name  = State.Map.get(file_info_pid, :file_name)
     chunk_size = State.Map.get(file_info_pid, :chunk_size)
     frag_size  = State.Map.get(file_info_pid, :frag_size)
+    out_dir    = State.Map.get(file_info_pid, :out_dir)
 
     frag_path
     |> File.open!()
@@ -44,7 +45,7 @@ defmodule FileShredder.Reassembler do
     |> reform_frag(seq_id)
     |> decr_field("payload", hashkey)
     |> unpad_payload()
-    |> write_payload(file_name, chunk_size)
+    |> write_payload(file_name, chunk_size, out_dir)
     Utils.File.delete(frag_path)
   end
   defp reassem({{frag_path, _seq_id, _seq_hash}, true}, _file_info_pid, _seekpos_pid) do
@@ -109,7 +110,7 @@ defmodule FileShredder.Reassembler do
     end
   end
 
-  def reassemble(dirpath, password) do
+  def reassemble(dirpath, password, out_dir) do
     hashkey = Utils.Crypto.gen_key(password)
     init_seq_id = 0
     init_seq_hash = gen_seq_hash(init_seq_id, hashkey)
@@ -146,6 +147,7 @@ defmodule FileShredder.Reassembler do
         :chunk_size => chunk_size,
         :file_name  => file_name,
         :frag_size  => frag_size,
+        :out_dir    => out_dir |> Path.dirname()
       }
     )
 
@@ -180,11 +182,12 @@ defmodule FileShredder.Reassembler do
     Map.put(fragment, "payload", payload)
   end
 
-  defp write_payload(fragment, file_name, chunk_size) do
+  defp write_payload(fragment, file_name, chunk_size, out_dir) do
     if @debug do IO.puts( "at write_payload...") end
     payload  = Map.get(fragment, "payload")
     seek_pos = Map.get(fragment, "seq_id") * chunk_size
-    out_file = File.open!(file_name, [:write, :read])
+    out_path = out_dir <> "/" <> file_name
+    out_file = File.open!(out_path, [:write, :read])
     {:ok, _pos} = :file.position(out_file, seek_pos)
     :file.write(out_file, payload)
     file_name

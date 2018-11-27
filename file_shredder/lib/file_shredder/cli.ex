@@ -47,11 +47,13 @@ defmodule FileShredder.CLI do
       case opts[:keyfile] do
         nil -> FileShredder.reassemble(
           opts[:in],
-          pword_prompt()
+          pword_prompt(),
+          opts[:out]
         )
         _  -> FileShredder.reassemble(
           opts[:in],
-          opts[:keyfile] |> Utils.File.parse_keyfile()
+          opts[:keyfile] |> Utils.File.parse_keyfile(),
+          opts[:out]
         )
       end
     end
