@@ -6,6 +6,7 @@ defmodule FileShredder.MixProject do
       app: :file_shredder,
       version: "0.1.0",
       elixir: "~> 1.7",
+      escript: escript_config(),
       start_permanent: Mix.env() == :prod,
       deps: deps()
     ]
@@ -16,6 +17,10 @@ defmodule FileShredder.MixProject do
     [
       extra_applications: [:logger]
     ]
+  end
+
+  defp escript_config do
+    [main_module: FileShredder.CLI]
   end
 
   # Run "mix help deps" to learn about dependencies.

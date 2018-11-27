@@ -18,7 +18,7 @@ defmodule FileShredder.CLI do
     end
 
     defp parse_args(argv) do
-      switches = [in: :string, shards: :integer, out: :string, keyfile: :string, password: :boolean]
+      switches = [in: :string, shards: :integer, out: :string, keyfile: :string]
       aliases  = [i: :in, c: :shards, o: :out, k: :keyfile]
       parse = OptionParser.parse(argv, switches: switches, aliases: aliases)
       case parse do
@@ -29,13 +29,13 @@ defmodule FileShredder.CLI do
     end
 
     defp map_params(opts, :fragment) do
-      case opts[:password] do
-        true -> FileShredder.fragment(
+      case opts[:keyfile] do
+        nil -> FileShredder.fragment(
           opts[:in],
           opts[:shards],
           pword_prompt()
         )
-        nil  -> FileShredder.fragment(
+        _  -> FileShredder.fragment(
           opts[:in],
           opts[:shards],
           opts[:keyfile] |> Utils.File.parse_keyfile()
@@ -44,12 +44,12 @@ defmodule FileShredder.CLI do
     end
 
     defp map_params(opts, :reassemble) do
-      case opts[:password] do
-        true -> FileShredder.reassemble(
+      case opts[:keyfile] do
+        nil -> FileShredder.reassemble(
           opts[:in],
           pword_prompt()
         )
-        nil  -> FileShredder.reassemble(
+        _  -> FileShredder.reassemble(
           opts[:in],
           opts[:keyfile] |> Utils.File.parse_keyfile()
         )
