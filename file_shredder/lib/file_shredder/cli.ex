@@ -38,7 +38,7 @@ defmodule FileShredder.CLI do
         nil  -> FileShredder.fragment(
           opts[:in],
           opts[:shards],
-          "pword" # TODO: parse key file here!
+          opts[:keyfile] |> Utils.File.parse_keyfile()
         )
       end
     end
@@ -51,7 +51,7 @@ defmodule FileShredder.CLI do
         )
         nil  -> FileShredder.reassemble(
           opts[:in],
-          "pword" # TODO: parse key file here!
+          opts[:keyfile] |> Utils.File.parse_keyfile()
         )
       end
     end

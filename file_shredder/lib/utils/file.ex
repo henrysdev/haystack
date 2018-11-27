@@ -46,4 +46,8 @@ defmodule Utils.File do
     dif != ""
   end
 
+  def parse_keyfile(fpath) do
+    File.read!(fpath) |> String.trim()
+  end
+
 end
