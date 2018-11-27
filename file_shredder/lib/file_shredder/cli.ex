@@ -60,7 +60,7 @@ defmodule FileShredder.CLI do
     end
   end
 
-  def pword_prompt() do
+  defp pword_prompt() do
     IO.write "Enter password: "
     pword1 = :io.get_password()
     IO.write "Confirm password: "
@@ -70,7 +70,7 @@ defmodule FileShredder.CLI do
       _     -> pword_prompt(:retry)
     end
   end
-  def pword_prompt(:retry) do
+  defp pword_prompt(:retry) do
     IO.puts "Passwords do not match. Try again"
     pword_prompt()
   end
