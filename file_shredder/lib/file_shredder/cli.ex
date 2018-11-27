@@ -1,39 +1,32 @@
 defmodule FileShredder.CLI do
     
-    def main(args \\ []) do
-      args
-      |> parse_args
-      |> response
-      |> IO.puts()
+    # CLI Map
+    #
+    # [ Fragmentation ]
+    # fragment -in <string/filepath> -fragcount <integer> -keyfile <path/to/keyfile> -out <string/dirpath>
+    # fragment -in <string/filepath> -fragcount <integer> -genkey <boolean>          -out <string/dirpath>
+    # fragment -in <string/filepath> -fragcount <integer> -password <string>         -out <string/dirpath>
+    #
+    # [ Reassembly ]
+    # reassemble -in <string/dirpath> -keyfile <path/to/keyfile> -out <string/dirpath>
+    # reassemble -in <string/dirpath> -password <string>         -out <string/dirpath>
+    #
+    # [ Help ]
+    # help
+
+    def main(argv) do
+      parse_args(argv)
     end
 
-    defp parse_args(args) do
-      {opts, word, _} =
-      args
-      |> OptionParser.parse(switches: [upcase: :boolean])
-
-      {opts, List.to_string(word)}
-    end
-
-    defp response({opts, word}) do
-      cond do
-        opts[:upcase]   -> String.upcase(word)
-        opts[:downcase] -> String.downcase(word)
-        true -> word
+    defp parse_args(argv) do
+      switches = [in: :string]
+      aliases  = [in: :in]
+      parse = OptionParser.parse(argv, switches: switches, aliases: aliases)
+      case parse do
+        {opts, ["fragment"], _} -> IO.inspect opts
+        {opts, ["reassemble"], _} -> IO.inspect opts
+        _ -> IO.puts "Invalid parameters"
       end
     end
-
-    # def main(["fragment", filepath, n, password]) do
-    #   FileShredder.fragment(filepath, n, password)
-    # end
-    # def main(["reassemble", dirpath, password]) do
-    #   FileShredder.reassemble(dirpath, password)
-    # end
-    # def main(["help"]) do
-    #   IO.puts(
-    #       "Welcome File Shredder.\n
-    #       asdlkf"
-    #   )
-    # end
 
 end
