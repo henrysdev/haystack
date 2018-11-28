@@ -51,6 +51,7 @@ defmodule FileShredder.Fragmentor do
         :chunk_size => chunk_size,
         :out_dir    => out_dir,
         :frag_size  => frag_size,
+        :file_path  => file_path,
       }
     )
 
@@ -70,9 +71,6 @@ defmodule FileShredder.Fragmentor do
     IO.inspect n, label: "n"
     frag_paths = Stream.map(0..(n-1), fn x -> {x, x * (chunk_size-1)} end)
     |> Stream.map(&mark_dummies(&1, file_size))
-    #|> FileShredder.Fragmentor.Dummies.generate(dummy_count, chunk_size)
-    |> Enum.to_list
-    |> IO.inspect
     |> Enum.map(&finish_frag(&1, file_info_pid, field_pos_pid))
     #|> Utils.Parallel.pooled_map(&finish_frag(&1, file_info_pid))
 
@@ -92,7 +90,6 @@ defmodule FileShredder.Fragmentor do
     %{}
     |> add_field("file_name", file_name)
     |> add_field("file_size", file_size)
-    #|> encr_field("payload", hashkey)
     |> encr_field("file_name", hashkey, @fname_buf_size)
     |> encr_field("file_size", hashkey, @fsize_buf_size)
     #|> FileShredder.Fragmentor.Payload.extract(file_info_pid)
@@ -100,7 +97,6 @@ defmodule FileShredder.Fragmentor do
     #|> add_hmac(hashkey)
     #|> serialize_raw()
     #|> write_out()
-    |> IO.inspect()
   end
 
   defp add_field(map, field, value) do
