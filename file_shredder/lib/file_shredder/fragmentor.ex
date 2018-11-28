@@ -111,47 +111,6 @@ defmodule FileShredder.Fragmentor do
     Path.dirname(out_dir) <> "/" <> seq_hash <> ".frg"
   end
 
-  defp add_field(map, field, value) do
-    Map.put(map, field, value)
-  end
-  
-  defp encr_field(map, field, hashkey, pad \\ 32) do
-    if @debug do IO.puts("encrypting #{field}...") end
-    cipherdata = Map.get(map, field) |> Utils.Crypto.encrypt(hashkey, pad)
-    Map.put(map, field, cipherdata)
-  end
-  
-  defp add_seq_hash(fragment, hashkey, seq_id) do
-    if @debug do IO.puts("add_seq_hash...") end
-    seq_hash = Utils.Crypto.gen_multi_hash([hashkey, seq_id])
-    { fragment, seq_hash }
-  end
-
-  defp add_hmac({ fragment, seq_hash }, hashkey) do
-    if @debug do IO.puts("add_hmac...") end
-    hmac_parts = [
-      Map.get(fragment, "payload"),
-      Map.get(fragment, "file_name"),
-      Map.get(fragment, "file_size"),
-      seq_hash,
-      hashkey,
-    ]
-    hmac = Utils.Crypto.gen_multi_hash(hmac_parts)
-    { Map.put(fragment, "hmac", hmac), seq_hash }
-  end
-
-  defp serialize_raw({ fragment, seq_hash }) do
-    {
-      [
-        Map.get(fragment, "payload"),
-        Map.get(fragment, "file_size"),
-        Map.get(fragment, "file_name"),
-        Map.get(fragment, "hmac"),
-      ],
-      seq_hash
-    }
-  end
-
   defp write_out({ fragment, seq_hash }) do
     if @debug do IO.puts("write_out...") end
     seq_hash = Base.encode16(seq_hash)
