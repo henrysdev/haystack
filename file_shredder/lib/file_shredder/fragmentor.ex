@@ -48,8 +48,8 @@ defmodule FileShredder.Fragmentor do
     |> Stream.map(&pad_frag(&1, chunk_size)) # pad frags
     |> FileShredder.Fragmentor.Dummies.generate(dummy_count, chunk_size)
     |> Stream.with_index() # add sequence ID
-    |> Enum.map(&finish_frag(&1, file_info_pid))
-    #|> Utils.Parallel.pooled_map(&finish_frag(&1, file_info_pid))
+    #|> Enum.map(&finish_frag(&1, file_info_pid))
+    |> Utils.Parallel.pooled_map(&finish_frag(&1, file_info_pid))
 
     {:ok, frag_paths}
   end
