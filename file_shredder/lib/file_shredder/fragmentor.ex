@@ -69,8 +69,8 @@ defmodule FileShredder.Fragmentor do
 
     frag_paths = Stream.map(0..(n-1), fn x -> {x, x * (chunk_size-1)} end)
     |> Stream.map(&mark_dummies(&1, file_size))
-    |> Enum.map(&finish_frag(&1, file_info_pid, field_pos_pid))
-    #|> Utils.Parallel.pooled_map(&finish_frag(&1, file_info_pid, field_pos_pid))
+    #|> Enum.map(&finish_frag(&1, file_info_pid, field_pos_pid))
+    |> Utils.Parallel.pooled_map(&finish_frag(&1, file_info_pid, field_pos_pid))
 
     {:ok, frag_paths}
   end
@@ -83,27 +83,33 @@ defmodule FileShredder.Fragmentor do
     chunk_size = State.Map.get(file_info_pid, :chunk_size)
     frag_size  = State.Map.get(file_info_pid, :frag_size)
     out_dir    = State.Map.get(file_info_pid, :out_dir)
-
-    #frag_path = {seq_id, read_pos}
-    #|> 
+    file_path  = State.Map.get(file_info_pid, :file_path)
     
     frag_path = gen_frag_path(seq_id, hashkey, out_dir)
     Utils.File.create(frag_path, frag_size)
 
     # Fields
-    file_name = file_name |> Utils.Crypto.encrypt(hashkey)
-    pad_amt = max(0, (read_pos + chunk_size) - file_size ) |> Integer.to_string() |> Utils.Crypto.encrypt(hashkey)
-    file_size = file_size |> Integer.to_string() |> Utils.Crypto.encrypt(hashkey)
-    # Payload
-    pl_hash = FileShredder.Fragmentor.Payload.process(read_pos, file_info_pid, frag_path)
-    # HMAC
-    :crypto.hash(:sha256, [file_size, file_name, pad_amt, pl_hash]) |> Base.encode16
-    # 1. Create fragment buffer
-    #   Utils.File.create....
-    # 2. Add and encrypt all fields
-    # 3. Encrypt payload + return its hash
-    # 4. Generate HMAC from fields <> hashkey <> pl_hash
+    file_name = file_name
+    |> Utils.Crypto.encrypt(hashkey)
 
+    pad_amt = max(0, (read_pos + chunk_size) - file_size )
+    |> Integer.to_string()
+    |> Utils.Crypto.encrypt(hashkey)
+
+    file_size = file_size
+    |> Integer.to_string()
+    |> Utils.Crypto.encrypt(hashkey)
+    
+    # Payload
+    encr_pl = FileShredder.Fragmentor.Payload.extract(read_pos, file_info_pid)
+    |> Utils.Crypto.encrypt(hashkey)
+
+    #encr_pl = FileShredder.Fragmentor.Payload.process(read_pos, file_info_pid, frag_path)
+    # HMAC
+    hmac = [file_name, file_size, pad_amt, encr_pl, hashkey] |> Utils.Crypto.gen_hash()
+    # Write Fields + Payload + HMAC to frag_File
+    fragment = [encr_pl, file_name, file_size, pad_amt, hmac]
+    File.write!(frag_path, fragment, [:raw, :read, :write])
   end
 
   defp gen_frag_path(seq_id, hashkey, out_dir) do
