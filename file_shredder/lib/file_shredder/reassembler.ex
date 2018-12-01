@@ -21,18 +21,13 @@ defmodule FileShredder.Reassembler do
   @pl_length_buf_size 32
   @hmac_size 32
 
-  defp authenticate(frag_path, seq_id, hashkey, :init) do
+  defp authenticate(frag_path, seq_id, hashkey) do
     if @debug do IO.puts( "start reassem...") end
     frag_size = Utils.File.size(frag_path)
     frag_path
     |> File.open!()
     |> gen_correct_hmac(seq_id, frag_size, hashkey)
     |> check_hmac(frag_size)
-    #frag_path
-    #|> File.open!()
-    #|> deserialize_raw(frag_size, seekpos_pid)
-    #|> gen_correct_hmac(seq_hash, hashkey)
-    #|> check_hmac()
   end
   defp reassem({{frag_path, seq_id, seq_hash}, false}, file_info_pid, seekpos_pid) do
     if @debug do IO.puts( "start reassem...") end
@@ -44,14 +39,13 @@ defmodule FileShredder.Reassembler do
 
     frag_path
     |> File.open!()
-    |> deserialize_raw(frag_size, seekpos_pid)
-    |> gen_correct_hmac(seq_hash, hashkey)
-    |> check_hmac()
-    |> reform_frag(seq_id)
-    |> decr_field("payload", hashkey)
-    |> unpad_payload()
-    |> write_payload(file_name, chunk_size, out_dir)
-    Utils.File.delete(frag_path)
+    |> gen_correct_hmac(seq_id, frag_size, hashkey)
+    |> check_hmac(frag_size)
+    |> get_payload(seekpos_pid, hashkey)
+    |> Utils.Crypto.decrypt(hashkey, :aes_ctr)
+    |> IO.inspect
+    # |> write_payload(file_name, chunk_size, out_dir)
+    # Utils.File.delete(frag_path)
   end
   defp reassem({{frag_path, _seq_id, _seq_hash}, true}, _file_info_pid, _seekpos_pid) do
     Utils.File.delete(frag_path)
@@ -64,17 +58,28 @@ defmodule FileShredder.Reassembler do
     end
   end
 
+  defp deserialize_fields({_, false, _}, _, _) do
+    :error
+  end
   defp deserialize_fields({fragment, true, frag_size}, seekpos_pid) do
     if @debug do IO.puts( "at deserialize_raw...") end
-    fields_size = @fname_buf_size + @fsize_buf_size + @pl_length_buf_size + @hmac_size
     frag_fields = %{
       :file_name => Utils.File.seek_read(fragment, State.Map.get(seekpos_pid, :file_name), @fname_buf_size),
       :file_size => Utils.File.seek_read(fragment, State.Map.get(seekpos_pid, :file_size), @fsize_buf_size),
       :pl_length => Utils.File.seek_read(fragment, State.Map.get(seekpos_pid, :pl_length), @pl_length_buf_size),
     }
-    #:payload   => Utils.File.seek_read(frag_file, State.Map.get(seekpos_pid, :payload), frag_size - fields_size), 
     File.close fragment
     frag_fields
+  end
+
+  defp get_payload({fragment, true, _frag_size}, seekpos_pid, hashkey) do
+    if @debug do IO.puts( "at deserialize_raw...") end
+    pl_length = Utils.File.seek_read(fragment, State.Map.get(seekpos_pid, :pl_length), @pl_length_buf_size)
+    |> Utils.Crypto.decrypt(hashkey, :aes_cbc)
+    |> String.to_integer()
+    payload = Utils.File.seek_read(fragment, State.Map.get(seekpos_pid, :payload), pl_length)
+    File.close fragment
+    payload
   end
 
   defp gen_correct_hmac(fragment, seq_id, frag_size, hashkey) do
@@ -114,9 +119,16 @@ defmodule FileShredder.Reassembler do
     end
   end
 
+  defp decrypt_fields(:error, _), do: :error
   defp decrypt_fields(field_map, hashkey) do
     Map.keys(field_map)
     |> Enum.reduce(%{}, fn key, acc -> Map.put(acc, key, Utils.Crypto.decrypt(Map.get(field_map, key), hashkey, :aes_cbc)) end)
+  end
+
+  defp correct_dtypes(fields) do
+    fields
+    |> Map.update!(:file_size, &String.to_integer(&1))
+    |> Map.update!(:pl_length, &String.to_integer(&1))
   end
 
   def reassemble(dirpath, password, out_dir) do
@@ -138,38 +150,34 @@ defmodule FileShredder.Reassembler do
       }
     )
 
-    init_fields = init_frag_path
-    |> authenticate(init_seq_id, hashkey, :init)
+    %{
+      :file_name => file_name,
+      :file_size => file_size,
+      :pl_length => pl_length,
+    } = init_frag_path
+    |> authenticate(init_seq_id, hashkey)
     |> deserialize_fields(seekpos_pid)
     |> decrypt_fields(hashkey)
+    |> correct_dtypes()
 
-    IO.inspect init_fields, label: "init_fields"
+    {:ok, file_info_pid} = State.Map.start_link(
+      %{
+        :hashkey   => hashkey,
+        :pl_length => pl_length,
+        :file_name => file_name,
+        :file_size => file_size,
+        :frag_size => frag_size,
+        :out_dir   => Path.dirname(out_dir) <> "/"
+      }
+    )
 
-    # init_frag = init_frag_path
-    # |> decr_field("file_name", hashkey)
-    # |> decr_field("file_size", hashkey)
-    # |> decr_field("payload", hashkey)
+    IO.inspect file_size, label: "file_size"
+    IO.inspect file_name, label: "file_name"
 
-    # chunk_size = byte_size(Map.get(init_frag, "payload")) - 1
-
-    # file_name = Map.get(init_frag, "file_name")
-    # {file_size, _} = Map.get(init_frag, "file_size") |> Integer.parse()
-    # Utils.File.create(file_name, file_size)
-
-    # {:ok, file_info_pid} = State.Map.start_link(
-    #   %{
-    #     :hashkey    => hashkey,
-    #     :chunk_size => chunk_size,
-    #     :file_name  => file_name,
-    #     :frag_size  => frag_size,
-    #     :out_dir    => Path.dirname(out_dir) <> "/"
-    #   }
-    # )
-
-    # iter_frag_seq(0, hashkey, dirpath, [])
-    # |> Stream.map(&{&1, dummy_frag?(&1, file_size, chunk_size)})
-    # #|> Enum.map(&reassem(&1, file_info_pid, seekpos_pid))
-    # |> Utils.Parallel.pooled_map(&reassem(&1, file_info_pid, seekpos_pid))
+    iter_frag_seq(0, hashkey, dirpath, [])
+    |> Stream.map(&{&1, dummy_frag?(&1, file_size, pl_length)})
+    #|> Enum.map(&reassem(&1, file_info_pid, seekpos_pid))
+    |> Utils.Parallel.pooled_map(&reassem(&1, file_info_pid, seekpos_pid))
   end
 
   defp reform_frag({fragment, true}, seq_id) do

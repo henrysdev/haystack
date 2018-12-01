@@ -35,6 +35,7 @@ defmodule Utils.Crypto do
   def decrypt(data, key, :aes_ctr) do
     stream_state = :crypto.stream_init(:aes_ctr, key, @zero_iv)
     {_, plain_text} = :crypto.stream_decrypt(stream_state, data)
+    plain_text
   end
 
   def decrypt(data, key, :aes_cbc) do
