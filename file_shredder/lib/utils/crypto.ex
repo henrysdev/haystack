@@ -21,11 +21,15 @@ defmodule Utils.Crypto do
     |> String.slice(0..desired_len - 1)
   end
 
-  def encrypt(data, key, pad_size \\ 32) do
+  def encrypt(data, key, :aes_ctr) do
     #:crypto.block_encrypt(:aes_cbc, key, @zero_iv, pad(data, pad_size))
     stream_state = :crypto.stream_init(:aes_ctr, key, @zero_iv)
     {_, cipher_text} = :crypto.stream_encrypt(stream_state, data) #pad(data, pad_size))
     cipher_text
+  end
+
+  def encrypt(data, key, :aes_cbc, pad_size) do
+    :crypto.block_encrypt(:aes_cbc, key, @zero_iv, pad(data, pad_size))
   end
 
   def decrypt(data, key) do

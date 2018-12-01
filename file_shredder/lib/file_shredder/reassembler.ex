@@ -18,6 +18,7 @@ defmodule FileShredder.Reassembler do
 
   @fname_buf_size 96
   @fsize_buf_size 32
+  @pl_length_buf_size 32
   @hmac_size 32
 
   defp reassem({frag_path, _seq_id, seq_hash}, hashkey, seekpos_pid, :init) do
