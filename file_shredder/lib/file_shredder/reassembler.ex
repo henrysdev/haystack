@@ -38,12 +38,9 @@ defmodule FileShredder.Reassembler do
     out_dir    = State.Map.get(file_info_pid, :out_dir)
 
     frag_path
-    |> File.open!()
-    |> gen_correct_hmac(seq_id, frag_size, hashkey)
-    |> check_hmac(frag_size)
+    |> authenticate(seq_id, hashkey)
     |> get_payload(seekpos_pid, hashkey)
     |> Utils.Crypto.decrypt(hashkey, :aes_ctr)
-    |> IO.inspect
     # |> write_payload(file_name, chunk_size, out_dir)
     # Utils.File.delete(frag_path)
   end
@@ -98,7 +95,11 @@ defmodule FileShredder.Reassembler do
   end
 
   defp valid_hmac?({fragment, correct_hmac}, frag_size) do
-    Utils.File.seek_read(fragment, frag_size - @hmac_size, @hmac_size) == correct_hmac
+    valid = Utils.File.seek_read(fragment, frag_size - @hmac_size, @hmac_size) == correct_hmac
+    # IO.inspect correct_hmac, label: "correct_hmac"
+    # IO.inspect Utils.File.seek_read(fragment, frag_size - @hmac_size, @hmac_size), label: "given_hmac"
+    # IO.inspect valid , label: "valid"
+    valid
   end
 
   defp gen_seq_hash(seq_id, hashkey) do
@@ -176,8 +177,8 @@ defmodule FileShredder.Reassembler do
 
     iter_frag_seq(0, hashkey, dirpath, [])
     |> Stream.map(&{&1, dummy_frag?(&1, file_size, pl_length)})
-    #|> Enum.map(&reassem(&1, file_info_pid, seekpos_pid))
-    |> Utils.Parallel.pooled_map(&reassem(&1, file_info_pid, seekpos_pid))
+    |> Enum.map(&reassem(&1, file_info_pid, seekpos_pid))
+    #|> Utils.Parallel.pooled_map(&reassem(&1, file_info_pid, seekpos_pid))
   end
 
   defp reform_frag({fragment, true}, seq_id) do

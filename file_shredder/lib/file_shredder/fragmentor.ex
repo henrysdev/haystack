@@ -60,8 +60,8 @@ defmodule FileShredder.Fragmentor do
     IO.inspect n, label: "n"
 
     frag_paths = Stream.map(0..(n-1), fn x -> {x, x * (chunk_size)} end)
-    |> Enum.map(&finish_frag(&1, file_info_pid, field_pos_pid))
-    #|> Utils.Parallel.pooled_map(&finish_frag(&1, file_info_pid, field_pos_pid))
+    #|> Enum.map(&finish_frag(&1, file_info_pid, field_pos_pid))
+    |> Utils.Parallel.pooled_map(&finish_frag(&1, file_info_pid, field_pos_pid))
 
     {:ok, frag_paths}
   end
@@ -100,18 +100,20 @@ defmodule FileShredder.Fragmentor do
     |> FileShredder.Fragmentor.Payload.extract(read_pos, chunk_size, dummy?)
     |> Utils.Crypto.encrypt(hashkey, :aes_ctr)
 
+    # write payload to fragment file
+    frag_file = File.open!(frag_path, [:raw, :read, :write])
+    Utils.File.seek_write(frag_file, 0, encr_pl)
+    #File.write!(frag_path, encr_pl, [:raw, :read, :write])
+
     # HMAC
     hmac = [
-      encr_pl, 
+      Utils.File.seek_read(frag_file, 0, chunk_size),
       file_name, 
       file_size, 
       pl_length, 
       seq_id, 
       hashkey, 
     ] |> Utils.Crypto.gen_hash()
-
-    # write payload to fragment file
-    File.write!(frag_path, encr_pl, [:raw, :read, :write])
     
     # Write fragment data to frag file
     fragment = [
@@ -120,8 +122,10 @@ defmodule FileShredder.Fragmentor do
       pl_length, 
       hmac,
     ]
-    frag_file = File.open!(frag_path, [:raw, :read, :write])
-    |> Utils.File.seek_write(chunk_size, fragment)
+    
+    Utils.File.seek_write(frag_file, chunk_size, fragment)
+
+    File.close frag_file
   end
 
   defp gen_frag_path(seq_id, hashkey, out_dir) do
