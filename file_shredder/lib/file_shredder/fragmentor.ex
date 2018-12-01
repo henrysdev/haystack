@@ -27,21 +27,12 @@ defmodule FileShredder.Fragmentor do
     %{"payload" => chunk}
   end
 
-  defp mark_dummies({seq_id, read_pos}, file_size) when read_pos >= file_size do
-    {seq_id, -1}
-  end
-  defp mark_dummies(real_frag, _file_size), do: real_frag
-
   def fragment(file_path, n, password, out_dir) when n > 1 do
     hashkey = Utils.Crypto.gen_key(password)
     file_name = Path.basename(file_path)
     file_size = Utils.File.size(file_path)
 
     chunk_size = (Float.ceil(file_size/n) |> trunc())
-    #padding = (n * (chunk_size - 1)) - file_size
-    #partial_pad = rem(padding, (chunk_size - 1))
-    #dummy_count = div((padding - partial_pad), (chunk_size - 1))
-    #real_count = n - dummy_count
     frag_size = chunk_size + @fname_buf_size + @fsize_buf_size + @pl_length_buf_size + @hmac_size
     
     {:ok, file_info_pid} = State.Map.start_link(
@@ -69,7 +60,6 @@ defmodule FileShredder.Fragmentor do
     IO.inspect n, label: "n"
 
     frag_paths = Stream.map(0..(n-1), fn x -> {x, x * (chunk_size)} end)
-    #|> Stream.map(&mark_dummies(&1, file_size))
     |> Enum.map(&finish_frag(&1, file_info_pid, field_pos_pid))
     #|> Utils.Parallel.pooled_map(&finish_frag(&1, file_info_pid, field_pos_pid))
 
@@ -123,19 +113,13 @@ defmodule FileShredder.Fragmentor do
     
     # Write fragment data to frag file
     fragment = [
-      #encr_pl, 
       file_name, 
-      "<<<>>>",
       file_size, 
-      "<<<>>>",
       pl_length, 
-      "<<<>>>",
       hmac,
     ]
     frag_file = File.open!(frag_path, [:raw, :read, :write])
     |> Utils.File.seek_write(chunk_size, fragment)
-
-    #File.write!(frag_path, fragment, [:raw, :read, :write])
   end
 
   defp gen_frag_path(seq_id, hashkey, out_dir) do
