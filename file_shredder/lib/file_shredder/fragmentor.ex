@@ -96,7 +96,8 @@ defmodule FileShredder.Fragmentor do
     |> Utils.Crypto.encrypt(hashkey, :aes_cbc, @fsize_buf_size)
 
     # Payload
-    encr_pl = FileShredder.Fragmentor.Payload.extract(file_path, read_pos, chunk_size, dummy?)
+    encr_pl = file_path
+    |> FileShredder.Fragmentor.Payload.extract(read_pos, chunk_size, dummy?)
     |> Utils.Crypto.encrypt(hashkey, :aes_ctr)
 
     # HMAC
@@ -105,7 +106,8 @@ defmodule FileShredder.Fragmentor do
       file_name, 
       file_size, 
       pl_length, 
-      hashkey,
+      seq_id, 
+      hashkey, 
     ] |> Utils.Crypto.gen_hash()
 
     # write payload to fragment file

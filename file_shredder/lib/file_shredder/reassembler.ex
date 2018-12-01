@@ -21,14 +21,18 @@ defmodule FileShredder.Reassembler do
   @pl_length_buf_size 32
   @hmac_size 32
 
-  defp reassem({frag_path, _seq_id, seq_hash}, hashkey, seekpos_pid, :init) do
+  defp authenticate(frag_path, seq_id, hashkey, :init) do
     if @debug do IO.puts( "start reassem...") end
     frag_size = Utils.File.size(frag_path)
     frag_path
     |> File.open!()
-    |> deserialize_raw(frag_size, seekpos_pid)
-    |> gen_correct_hmac(seq_hash, hashkey)
-    |> check_hmac()
+    |> gen_correct_hmac(seq_id, frag_size, hashkey)
+    |> check_hmac(frag_size)
+    #frag_path
+    #|> File.open!()
+    #|> deserialize_raw(frag_size, seekpos_pid)
+    #|> gen_correct_hmac(seq_hash, hashkey)
+    #|> check_hmac()
   end
   defp reassem({{frag_path, seq_id, seq_hash}, false}, file_info_pid, seekpos_pid) do
     if @debug do IO.puts( "start reassem...") end
@@ -60,37 +64,36 @@ defmodule FileShredder.Reassembler do
     end
   end
 
-  defp deserialize_raw(frag_file, frag_size, seekpos_pid) do
-    # TODO: find a clean way to manage these magic numbers...
+  defp deserialize_fields({fragment, true, frag_size}, seekpos_pid) do
     if @debug do IO.puts( "at deserialize_raw...") end
-    fields_size = @fsize_buf_size + @fname_buf_size + @hmac_size
-    fragment = %{
-      "payload"   => Utils.File.seek_read(frag_file, State.Map.get(seekpos_pid, :payload), frag_size - fields_size), 
-      "file_size" => Utils.File.seek_read(frag_file, State.Map.get(seekpos_pid, :file_size), @fsize_buf_size),
-      "file_name" => Utils.File.seek_read(frag_file, State.Map.get(seekpos_pid, :file_name), @fname_buf_size),
-      "hmac"      => Utils.File.seek_read(frag_file, State.Map.get(seekpos_pid, :hmac),  @hmac_size),
+    fields_size = @fname_buf_size + @fsize_buf_size + @pl_length_buf_size + @hmac_size
+    frag_fields = %{
+      :file_name => Utils.File.seek_read(fragment, State.Map.get(seekpos_pid, :file_name), @fname_buf_size),
+      :file_size => Utils.File.seek_read(fragment, State.Map.get(seekpos_pid, :file_size), @fsize_buf_size),
+      :pl_length => Utils.File.seek_read(fragment, State.Map.get(seekpos_pid, :pl_length), @pl_length_buf_size),
     }
-    File.close frag_file
-    fragment
+    #:payload   => Utils.File.seek_read(frag_file, State.Map.get(seekpos_pid, :payload), frag_size - fields_size), 
+    File.close fragment
+    frag_fields
   end
 
-  defp gen_correct_hmac(fragment, seq_hash, hashkey) do
-    hmac_parts = [
-      Map.get(fragment, "payload"),
-      Map.get(fragment, "file_name"),
-      Map.get(fragment, "file_size"),
-      seq_hash,
-      hashkey
-    ]
-    {fragment, Utils.Crypto.gen_multi_hash(hmac_parts)}
+  defp gen_correct_hmac(fragment, seq_id, frag_size, hashkey) do
+    # HMAC
+    hmac = [
+      Utils.File.seek_read(fragment, 0, frag_size - @hmac_size),
+      seq_id,
+      hashkey,
+    ] |> Utils.Crypto.gen_hash()
+
+    {fragment, hmac}
   end
 
-  defp check_hmac({fragment, correct_hmac}) do
-    {fragment, valid_hmac?({fragment, correct_hmac})}
+  defp check_hmac({fragment, correct_hmac}, frag_size) do
+    {fragment, valid_hmac?({fragment, correct_hmac}, frag_size), frag_size}
   end
 
-  defp valid_hmac?({fragment, correct_hmac}) do
-    Map.get(fragment, "hmac") == correct_hmac
+  defp valid_hmac?({fragment, correct_hmac}, frag_size) do
+    Utils.File.seek_read(fragment, frag_size - @hmac_size, @hmac_size) == correct_hmac
   end
 
   defp gen_seq_hash(seq_id, hashkey) do
@@ -111,7 +114,13 @@ defmodule FileShredder.Reassembler do
     end
   end
 
+  defp decrypt_fields(field_map, hashkey) do
+    Map.keys(field_map)
+    |> Enum.reduce(%{}, fn key, acc -> Map.put(acc, key, Utils.Crypto.decrypt(Map.get(field_map, key), hashkey, :aes_cbc)) end)
+  end
+
   def reassemble(dirpath, password, out_dir) do
+    # initial fragment setup
     hashkey = Utils.Crypto.gen_key(password)
     init_seq_id = 0
     init_seq_hash = gen_seq_hash(init_seq_id, hashkey)
@@ -122,40 +131,45 @@ defmodule FileShredder.Reassembler do
     {:ok, seekpos_pid} = State.Map.start_link(
       %{
         :hmac      => frag_size - @hmac_size,
-        :file_name => frag_size - @hmac_size - @fname_buf_size,
-        :file_size => frag_size - @hmac_size - @fname_buf_size - @fsize_buf_size,
+        :pl_length => frag_size - @hmac_size - @pl_length_buf_size,
+        :file_size => frag_size - @hmac_size - @pl_length_buf_size - @fsize_buf_size,
+        :file_name => frag_size - @hmac_size - @pl_length_buf_size - @fsize_buf_size - @fname_buf_size,
         :payload   => 0,
       }
     )
 
-    {init_frag_path, true} = {init_frag_path, init_seq_id, init_seq_hash} 
-    |> reassem(hashkey, seekpos_pid, :init)
+    init_fields = init_frag_path
+    |> authenticate(init_seq_id, hashkey, :init)
+    |> deserialize_fields(seekpos_pid)
+    |> decrypt_fields(hashkey)
 
-    init_frag = init_frag_path
-    |> decr_field("file_name", hashkey)
-    |> decr_field("file_size", hashkey)
-    |> decr_field("payload", hashkey)
+    IO.inspect init_fields, label: "init_fields"
 
-    chunk_size = byte_size(Map.get(init_frag, "payload")) - 1
+    # init_frag = init_frag_path
+    # |> decr_field("file_name", hashkey)
+    # |> decr_field("file_size", hashkey)
+    # |> decr_field("payload", hashkey)
 
-    file_name = Map.get(init_frag, "file_name")
-    {file_size, _} = Map.get(init_frag, "file_size") |> Integer.parse()
-    Utils.File.create(file_name, file_size)
+    # chunk_size = byte_size(Map.get(init_frag, "payload")) - 1
 
-    {:ok, file_info_pid} = State.Map.start_link(
-      %{
-        :hashkey    => hashkey,
-        :chunk_size => chunk_size,
-        :file_name  => file_name,
-        :frag_size  => frag_size,
-        :out_dir    => Path.dirname(out_dir) <> "/"
-      }
-    )
+    # file_name = Map.get(init_frag, "file_name")
+    # {file_size, _} = Map.get(init_frag, "file_size") |> Integer.parse()
+    # Utils.File.create(file_name, file_size)
 
-    iter_frag_seq(0, hashkey, dirpath, [])
-    |> Stream.map(&{&1, dummy_frag?(&1, file_size, chunk_size)})
-    #|> Enum.map(&reassem(&1, file_info_pid, seekpos_pid))
-    |> Utils.Parallel.pooled_map(&reassem(&1, file_info_pid, seekpos_pid))
+    # {:ok, file_info_pid} = State.Map.start_link(
+    #   %{
+    #     :hashkey    => hashkey,
+    #     :chunk_size => chunk_size,
+    #     :file_name  => file_name,
+    #     :frag_size  => frag_size,
+    #     :out_dir    => Path.dirname(out_dir) <> "/"
+    #   }
+    # )
+
+    # iter_frag_seq(0, hashkey, dirpath, [])
+    # |> Stream.map(&{&1, dummy_frag?(&1, file_size, chunk_size)})
+    # #|> Enum.map(&reassem(&1, file_info_pid, seekpos_pid))
+    # |> Utils.Parallel.pooled_map(&reassem(&1, file_info_pid, seekpos_pid))
   end
 
   defp reform_frag({fragment, true}, seq_id) do

@@ -32,11 +32,17 @@ defmodule Utils.Crypto do
     :crypto.block_encrypt(:aes_cbc, key, @zero_iv, pad(data, pad_size))
   end
 
-  def decrypt(data, key) do
+  def decrypt(data, key, :aes_ctr) do
     stream_state = :crypto.stream_init(:aes_ctr, key, @zero_iv)
     {_, plain_text} = :crypto.stream_decrypt(stream_state, data)
-    #unpad(plain_text)
   end
+
+  def decrypt(data, key, :aes_cbc) do
+    padded = :crypto.block_decrypt(:aes_cbc, key, @zero_iv, data)
+    unpad(padded)
+  end
+
+
 
   def gen_key(password) do
     :crypto.hash(:sha256, password) |> String.slice(0..@key_size-1)
