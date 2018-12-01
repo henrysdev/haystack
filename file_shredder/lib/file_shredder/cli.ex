@@ -113,10 +113,14 @@ defmodule FileShredder.CLI do
     reassemble --in <string> --out <string>
     
     [ Parameters ]
-    --in      | -i = path to the input file (for fragmentation) or the input directory (for reassembly).
-    --count   | -c = number of fragments to split the file into during fragmentation.
-    --keyfile | -k = path to a file containing the plaintext password to be used for encryption (for fragmentation) or decryption(for reassembly).
-    --out     | -o = path to the output directory where fragments (for fragmentation) or the original file (for reassembly) will be located.
+    --in | -i
+      path to the input file (for fragmentation) or the input directory (for reassembly).
+    --count | -c
+      number of fragments to split the file into during fragmentation.
+    --keyfile | -k
+      path to a file containing the plaintext password to be used for encryption (for fragmentation) or decryption(for reassembly).
+    --out | -o
+      path to the output directory where fragments (for fragmentation) or the original file (for reassembly) will be located.
     """ |> IO.puts()
   end
 
