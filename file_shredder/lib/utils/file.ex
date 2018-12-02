@@ -5,14 +5,6 @@ defmodule Utils.File do
     size
   end
 
-  def read(fpath) do
-    File.open!(fpath, [:read, :binary])
-  end
-
-  def write(fpath, content) do
-    File.write!(fpath, content, [:binary])
-  end
-
   def seek_read(file, start_pos, seg_size) do
     {:ok, _pos} = :file.position(file, start_pos)
     {:ok, content} = :file.read(file, seg_size)
@@ -44,6 +36,8 @@ defmodule Utils.File do
   end
 
   def diff?(fpath1, fpath2) do
+    IO.inspect fpath1, label: "fpath1"
+    IO.inspect fpath2, label: "fpath1"
     { dif, _ } = System.cmd("diff", [fpath1, fpath2])
     dif != ""
   end

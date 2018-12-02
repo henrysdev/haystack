@@ -1,4 +1,4 @@
-defmodule FileShredder.CLI do
+defmodule CLI do
 
   def main(argv) do
     parse_args(argv)
