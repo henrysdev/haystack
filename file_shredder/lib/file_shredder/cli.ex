@@ -8,14 +8,14 @@ defmodule FileShredder.CLI do
     switches = [
       in: :string, 
       count: :integer, 
+      keyfile: :string, 
       out: :string, 
-      keyfile: :string
     ]
     aliases = [
       i: :in, 
       c: :count, 
+      k: :keyfile, 
       o: :out, 
-      k: :keyfile
     ]
     parse = OptionParser.parse(argv, switches: switches, aliases: aliases)
     case parse do
@@ -30,9 +30,9 @@ defmodule FileShredder.CLI do
     # validate that all necessary params are not nil before calling function!
     case opts[:keyfile] do
       nil -> FileShredder.fragment(
-        opts[:in], # 
+        opts[:in],
         opts[:count],
-        password_get("Enter password: "), #pword_prompt(),
+        password_get("Enter the password to encrypt with: "),
         opts[:out]
       )
       _  -> FileShredder.fragment(
@@ -49,8 +49,7 @@ defmodule FileShredder.CLI do
     case opts[:keyfile] do
       nil -> FileShredder.reassemble(
         opts[:in],
-        password_get("Enter password: "),
-        #pword_prompt(),
+        password_get("Enter the password to decrypt with: "),
         opts[:out]
       )
       _  -> FileShredder.reassemble(
@@ -79,7 +78,7 @@ defmodule FileShredder.CLI do
   defp loop(prompt) do
     receive do
       {:done, parent, ref} ->
-        send parent, {:done, self, ref}
+        send parent, {:done, self(), ref}
         IO.write :standard_error, "\e[2K\r"
     after
       1 ->

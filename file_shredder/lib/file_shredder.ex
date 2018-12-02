@@ -14,6 +14,6 @@ defmodule FileShredder do
   """
   defdelegate fragment(filepath, n, password, outdir), to: FileShredder.Fragmentor
 
-  defdelegate reassemble(dirpath, password, outdir), to:  FileShredder.Reassembler
+  defdelegate reassemble(dirpath, password, outdir), to: FileShredder.Reassembler
 
 end

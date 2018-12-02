@@ -46,7 +46,6 @@ defmodule Utils.Crypto do
 
   def gen_hash(data) do
     :crypto.hash(:sha256, data)
-    |> to_string
   end
 
 end

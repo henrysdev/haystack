@@ -25,7 +25,7 @@ defmodule FileShredder.Reassembler do
   def reassemble(dirpath, password, out_dir) do
     hashkey = Utils.Crypto.gen_key(password)
     init_seq_id = 0
-    init_seq_hash = Utils.Crypto.gen_hash([hashkey, init_seq_id])
+    init_seq_hash = Utils.Crypto.gen_hash([hashkey, to_string(init_seq_id)])
 
     init_frag_path = Utils.File.gen_frag_path(init_seq_hash, dirpath)
     frag_size = Utils.File.size(init_frag_path)
@@ -61,9 +61,6 @@ defmodule FileShredder.Reassembler do
       }
     )
 
-    IO.inspect file_size, label: "file_size"
-    IO.inspect file_name, label: "file_name"
-
     iter_frag_seq(0, hashkey, dirpath, [])
     |> Stream.map(&{&1, dummy_frag?(&1, file_size, pl_length)})
     #|> Enum.map(&reassem(&1, file_info_pid, seekpos_pid))
@@ -87,7 +84,7 @@ defmodule FileShredder.Reassembler do
   defp gen_correct_hmac(fragment, seq_id, frag_size, hashkey) do
     hmac = [
       Utils.File.seek_read(fragment, 0, frag_size - @hmac_size),
-      seq_id,
+      to_string(seq_id),
       hashkey,
     ] |> Utils.Crypto.gen_hash()
 
@@ -95,15 +92,12 @@ defmodule FileShredder.Reassembler do
   end
 
   defp check_hmac({fragment, correct_hmac}, frag_size) do
-    {fragment, valid_hmac?({fragment, correct_hmac}, frag_size), frag_size}
+    valid? = Utils.File.seek_read(fragment, frag_size - @hmac_size, @hmac_size) == correct_hmac
+    {fragment, valid?, frag_size}
   end
 
-  defp valid_hmac?({fragment, correct_hmac}, frag_size) do
-    Utils.File.seek_read(fragment, frag_size - @hmac_size, @hmac_size) == correct_hmac
-  end
-
-  defp deserialize_fields({_, false, _}, _, _), do: error
-  defp deserialize_fields({fragment, true, frag_size}, seekpos_pid) do
+  defp deserialize_fields({_, false, _}, _), do: :error
+  defp deserialize_fields({fragment, true, _frag_size}, seekpos_pid) do
     if @debug do IO.puts( "at deserialize_raw...") end
     frag_fields = %{
       :file_name => Utils.File.seek_read(fragment, State.Map.get(seekpos_pid, :file_name), @fname_buf_size),
@@ -129,8 +123,8 @@ defmodule FileShredder.Reassembler do
   end
 
   defp iter_frag_seq(seq_id, hashkey, dirpath, acc) do
-    seq_hash  = Utils.Crypto.gen_hash([hashkey, seq_id])
-    frag_path = seq_hash |> Utils.File.gen_frag_path(dirpath)
+    seq_hash  = Utils.Crypto.gen_hash([hashkey, to_string(seq_id)])
+    frag_path = seq_hash |> gen_frag_path(dirpath)
     case File.exists? frag_path do
       true  -> iter_frag_seq(seq_id + 1, hashkey, dirpath, [{frag_path, seq_id, seq_hash} | acc])
       false -> acc
@@ -144,12 +138,11 @@ defmodule FileShredder.Reassembler do
     end
   end
 
-  defp reassem({{frag_path, seq_id, seq_hash}, false}, file_info_pid, seekpos_pid) do
+  defp reassem({{frag_path, seq_id, _seq_hash}, false}, file_info_pid, seekpos_pid) do
     if @debug do IO.puts( "start reassem...") end
     hashkey   = State.Map.get(file_info_pid, :hashkey)
     file_name = State.Map.get(file_info_pid, :file_name)
     pl_length = State.Map.get(file_info_pid, :pl_length)
-    frag_size = State.Map.get(file_info_pid, :frag_size)
     out_dir   = State.Map.get(file_info_pid, :out_dir)
 
     write_pos = seq_id * pl_length
