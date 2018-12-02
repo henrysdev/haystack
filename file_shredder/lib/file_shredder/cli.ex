@@ -1,17 +1,4 @@
 defmodule FileShredder.CLI do
-    
-  # CLI Map
-  #
-  # [ Fragmentation ]
-  # fragment -in <string/filepath> -fragcount <integer> -keyfile <path/to/keyfile> -out <string/dirpath>
-  # fragment -in <string/filepath> -fragcount <integer> -out <string/dirpath>
-  
-  # [ Reassembly ]
-  # reassemble -in <string/dirpath> -keyfile <path/to/keyfile> -out <string/dirpath>
-  # reassemble -in <string/dirpath> -out <string/dirpath>
-  
-  # [ Help ]
-  # help
 
   def main(argv) do
     parse_args(argv)

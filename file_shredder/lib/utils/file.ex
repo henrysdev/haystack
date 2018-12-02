@@ -52,4 +52,9 @@ defmodule Utils.File do
     File.read!(fpath) |> String.trim()
   end
 
+  def gen_frag_path(seq_hash, dirpath) do
+    seq_hash = Base.encode16(seq_hash)
+    Path.dirname(dirpath) <> "/" <> seq_hash  <> ".frg"
+  end
+
 end
