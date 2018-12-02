@@ -42,12 +42,23 @@ defmodule Utils.File do
     dif != ""
   end
 
+  def form_dirpath(path) do
+    case String.ends_with?(path, "/") do
+      true  -> path
+      false -> 
+        case File.dir?(path) do
+          true  -> path <> "/"
+          false -> Path.dirname(path) <> "/"
+        end
+    end
+  end
+
   def parse_keyfile(fpath) do
     File.read!(fpath) |> String.trim()
   end
 
   def gen_frag_path(seq_hash, dirpath) do
-    Path.dirname(dirpath) <> "/" <> Base.encode16(seq_hash)  <> ".frg"
+    form_dirpath(dirpath) <> Base.encode16(seq_hash) <> ".frg"
   end
 
 end

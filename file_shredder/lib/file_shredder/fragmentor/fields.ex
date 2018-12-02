@@ -20,4 +20,8 @@ defmodule FileShredder.Fragmentor.Fields do
     |> Utils.Crypto.encrypt(hashkey, :aes_cbc, @fsize_buf_size)
   end
 
+  def get_bytes_count() do
+    @fname_buf_size + @fsize_buf_size + @pl_length_buf_size + @hmac_size
+  end
+
 end
