@@ -36,21 +36,22 @@ defmodule Utils.File do
   end
 
   def diff?(fpath1, fpath2) do
-    IO.inspect fpath1, label: "fpath1"
-    IO.inspect fpath2, label: "fpath1"
     { dif, _ } = System.cmd("diff", [fpath1, fpath2])
     dif != ""
   end
 
   def form_dirpath(path) do
-    case String.ends_with?(path, "/") do
-      true  -> path
-      false -> 
-        case File.dir?(path) do
-          true  -> path <> "/"
-          false -> Path.dirname(path) <> "/"
-        end
-    end
+    # no way to pattern match the end of a string in Elixir
+    # https://stackoverflow.com/questions/32448423/pattern-match-on-end-of-a-string-binary-argument#comment52766593_32451767
+
+    # alternative to nested condition blocks
+    dpath = fn {true, _}      -> path
+               {false, true}  -> path <> "/"
+               {false, false} -> Path.dirname(path) <> "/"
+            end
+
+    {String.ends_with?(path, "/"), File.dir?(path)}
+    |> dpath.()
   end
 
   def parse_keyfile(fpath) do
