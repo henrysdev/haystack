@@ -3,17 +3,17 @@ defmodule Dev.Profiler do
 import ExProf.Macro
 
   @doc "analyze with profile macro"
-  def analyze_fragmentor(fpath \\ "debug/in/abc.txt", n \\ 10, pword \\ "pword") do
+  def analyze_fragmentor(fpath \\ "debug/in/abc.txt", n \\ 10, pword \\ "pword", out \\ "debug/out/") do
     profile do
-      FileShredder.fragment(fpath, n, pword)
+      FileShredder.fragment(fpath, n, pword, out)
       IO.puts "message\n"
     end
   end
 
   @doc "analyze with profile macro"
-  def analyze_reassembler(dirpath \\ "debug/out/*.frg", pword \\ "pword") do
+  def analyze_reassembler(dirpath \\ "debug/out/*.frg", pword \\ "pword", out \\ "debug/out") do
     profile do
-      FileShredder.reassemble(dirpath, pword)
+      FileShredder.reassemble(dirpath, pword, out)
       IO.puts "message\n"
     end
   end

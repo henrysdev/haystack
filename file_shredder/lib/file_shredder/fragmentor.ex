@@ -13,111 +13,97 @@ defmodule FileShredder.Fragmentor do
       :world
 
   """
-  # DEBUG
-  @debug false
+  @fname_buf_size 96
+  @fsize_buf_size 32
+  @pl_length_buf_size 32
+  @hmac_size 32
 
-  @max_file_name_size 96
-  @max_file_size_int 32
-
-  defp pad_frag(chunk, chunk_size) do
-    if @debug do IO.puts("pad_frag...") end
-    chunk = Utils.Crypto.pad(chunk, chunk_size)
-    %{"payload" => chunk}
-  end
-
-  def fragment(file_path, n, password) when n > 1 do
+  def fragment(in_fpath, count, password, out_dpath) when count > 1 do
     hashkey = Utils.Crypto.gen_key(password)
-    file_name = Path.basename(file_path)
-    file_size = Utils.File.size(file_path)
+    file_name = Path.basename(in_fpath)
+    file_size = Utils.File.size(in_fpath)
 
-    chunk_size = (Float.ceil(file_size/n) |> trunc()) + 1
-    padding = (n * (chunk_size - 1)) - file_size
-    partial_pad = rem(padding, (chunk_size - 1))
-    dummy_count = div((padding - partial_pad), (chunk_size - 1))
+    chunk_size = (Float.ceil(file_size/count) |> trunc())
+    frag_size = chunk_size + @fname_buf_size + @fsize_buf_size + @pl_length_buf_size + @hmac_size
     
     {:ok, file_info_pid} = State.Map.start_link(
       %{
-        :hashkey   => hashkey,
-        :file_name => file_name,
-        :file_size => file_size,
+        :hashkey    => hashkey,
+        :file_name  => file_name,
+        :file_size  => file_size,
+        :chunk_size => chunk_size,
+        :out_dpath  => out_dpath,
+        :frag_size  => frag_size,
+        :in_fpath   => in_fpath,
       }
     )
 
-    frag_paths = file_path
-    |> File.stream!([], chunk_size - 1)
-    |> Stream.map(&pad_frag(&1, chunk_size)) # pad frags
-    |> FileShredder.Fragmentor.Dummies.generate(dummy_count, chunk_size)
-    |> Stream.with_index() # add sequence ID
+    frag_paths = Stream.map(0..(count-1), fn x -> {x, x * (chunk_size)} end)
     #|> Enum.map(&finish_frag(&1, file_info_pid))
     |> Utils.Parallel.pooled_map(&finish_frag(&1, file_info_pid))
 
     {:ok, frag_paths}
   end
-  def fragment(_, _, _), do: :error
+  def fragment(_, _, _, _), do: :error
 
-  defp finish_frag({ fragment, seq_id }, file_info_pid) do
-    hashkey   = State.Map.get(file_info_pid, :hashkey)
-    file_name = State.Map.get(file_info_pid, :file_name)
-    file_size = State.Map.get(file_info_pid, :file_size) |> Integer.to_string()
-    fragment
-    |> add_field("file_name", file_name)
-    |> add_field("file_size", file_size)
-    |> encr_field("payload", hashkey)
-    |> encr_field("file_name", hashkey, @max_file_name_size)
-    |> encr_field("file_size", hashkey, @max_file_size_int)
-    |> add_seq_hash(hashkey, seq_id)
-    |> add_hmac(hashkey)
-    |> serialize_raw()
-    |> write_out()
-  end
+  defp finish_frag({ seq_id, read_pos }, file_info_pid) do
+    hashkey    = State.Map.get(file_info_pid, :hashkey)
+    file_name  = State.Map.get(file_info_pid, :file_name)
+    file_size  = State.Map.get(file_info_pid, :file_size)
+    chunk_size = State.Map.get(file_info_pid, :chunk_size)
+    frag_size  = State.Map.get(file_info_pid, :frag_size)
+    out_dpath    = State.Map.get(file_info_pid, :out_dpath)
+    in_fpath  = State.Map.get(file_info_pid, :in_fpath)
+    
+    frag_path = Utils.Crypto.gen_hash([hashkey, to_string(seq_id)])
+    |> Utils.File.gen_frag_path(out_dpath)
+    
+    Utils.File.create(frag_path, frag_size)
 
-  defp add_field(map, field, value) do
-    Map.put(map, field, value)
-  end
-  
-  defp encr_field(map, field, hashkey, pad \\ 32) do
-    if @debug do IO.puts("encrypting #{field}...") end
-    cipherdata = Map.get(map, field) |> Utils.Crypto.encrypt(hashkey, pad)
-    Map.put(map, field, cipherdata)
-  end
-  
-  defp add_seq_hash(fragment, hashkey, seq_id) do
-    if @debug do IO.puts("add_seq_hash...") end
-    seq_hash = Utils.Crypto.gen_multi_hash([hashkey, seq_id])
-    { fragment, seq_hash }
-  end
+    pl_length = max(0, (chunk_size - max(0, (read_pos + chunk_size) - file_size )))
+    dummy? = pl_length == 0
 
-  defp add_hmac({ fragment, seq_hash }, hashkey) do
-    if @debug do IO.puts("add_hmac...") end
-    hmac_parts = [
-      Map.get(fragment, "payload"),
-      Map.get(fragment, "file_name"),
-      Map.get(fragment, "file_size"),
-      seq_hash,
-      hashkey,
+    # Fields
+    file_name = Utils.Crypto.encrypt(file_name, hashkey, :aes_cbc, @fname_buf_size)
+
+    pl_length = pl_length
+    |> Integer.to_string()
+    |> Utils.Crypto.encrypt(hashkey, :aes_cbc, @pl_length_buf_size)
+
+    file_size = file_size
+    |> Integer.to_string()
+    |> Utils.Crypto.encrypt(hashkey, :aes_cbc, @fsize_buf_size)
+
+    # Payload
+    encr_pl = in_fpath
+    |> FileShredder.Fragmentor.Payload.extract(read_pos, chunk_size, dummy?)
+    |> Utils.Crypto.encrypt(hashkey, :aes_ctr)
+
+    # write payload to fragment file
+    frag_file = File.open!(frag_path, [:raw, :read, :write])
+    Utils.File.seek_write(frag_file, 0, encr_pl)
+
+    # HMAC
+    hmac = [
+      Utils.File.seek_read(frag_file, 0, chunk_size),
+      file_name, 
+      file_size, 
+      pl_length, 
+      to_string(seq_id), 
+      hashkey, 
+    ] |> Utils.Crypto.gen_hash()
+
+    # Write fragment data to frag file
+    fragment = [
+      file_name, 
+      file_size, 
+      pl_length, 
+      hmac,
     ]
-    hmac = Utils.Crypto.gen_multi_hash(hmac_parts)
-    { Map.put(fragment, "hmac", hmac), seq_hash }
-  end
+    
+    Utils.File.seek_write(frag_file, chunk_size, fragment)
 
-  defp serialize_raw({ fragment, seq_hash }) do
-    {
-      [
-        Map.get(fragment, "payload"),
-        Map.get(fragment, "file_size"),
-        Map.get(fragment, "file_name"),
-        Map.get(fragment, "hmac"),
-      ],
-      seq_hash
-    }
-  end
-
-  defp write_out({ fragment, seq_hash }) do
-    if @debug do IO.puts("write_out...") end
-    seq_hash = Base.encode16(seq_hash)
-    frag_path = "debug/out/#{seq_hash}.frg"
-    Utils.File.write(frag_path, fragment)
-    frag_path
+    File.close frag_file
   end
 
 end

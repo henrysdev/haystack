@@ -3,7 +3,7 @@ defmodule Utils.Crypto do
   # erlang crypto adapted from: https://stackoverflow.com/a/37660251
   @aes_block_size 32
   @key_size 32
-  @zero_iv to_string(:string.chars(0, 16)) # TODO: Implement legitimate init vector!
+  @zero_iv to_string(:string.chars(0, 16)) #:crypto.strong_rand_bytes(16)
 
   def pad(data, block_size) do
     to_add = block_size - rem(byte_size(data), block_size)
@@ -21,28 +21,31 @@ defmodule Utils.Crypto do
     |> String.slice(0..desired_len - 1)
   end
 
-  def encrypt(data, key, pad_size \\ 32) do
-    #:crypto.block_encrypt(:aes_cbc, key, @zero_iv, pad(data, pad_size))
+  def encrypt(data, key, :aes_ctr) do
     stream_state = :crypto.stream_init(:aes_ctr, key, @zero_iv)
-    {_, cipher_text} = :crypto.stream_encrypt(stream_state, pad(data, pad_size))
+    {_, cipher_text} = :crypto.stream_encrypt(stream_state, data)
     cipher_text
   end
+  def encrypt(data, key, :aes_cbc, pad_size) do
+    :crypto.block_encrypt(:aes_cbc, key, @zero_iv, pad(data, pad_size))
+  end
 
-  def decrypt(data, key) do
+  def decrypt(data, key, :aes_ctr) do
     stream_state = :crypto.stream_init(:aes_ctr, key, @zero_iv)
     {_, plain_text} = :crypto.stream_decrypt(stream_state, data)
-    unpad(plain_text)
-    #padded = :crypto.block_decrypt(:aes_cbc, key, @zero_iv, data)
-    #unpad(padded)
+    plain_text
+  end
+  def decrypt(data, key, :aes_cbc) do
+    padded = :crypto.block_decrypt(:aes_cbc, key, @zero_iv, data)
+    unpad(padded)
   end
 
   def gen_key(password) do
     :crypto.hash(:sha256, password) |> String.slice(0..@key_size-1)
   end
 
-  def gen_multi_hash(parts) do
-    :crypto.hash(:sha256, Enum.join(parts))
-    |> to_string
+  def gen_hash(data) do
+    :crypto.hash(:sha256, data)
   end
 
 end

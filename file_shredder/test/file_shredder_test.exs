@@ -11,9 +11,10 @@ defmodule FileShredderTest do
   @large_file "debug/in/large_file"
   @large_file_size 10_737_418_240  # 10 GB
 
-  @frag_dir  "debug/out/*.frg"
+  @frag_dir "debug/out/*.frg"
   @password "pword"
 
+  @out_dir "debug/out/"
   @done_dir "debug/done/"
 
 
@@ -49,14 +50,14 @@ defmodule FileShredderTest do
     clean_up(@frag_dir)
     file_name = context[:small_file]
     n = 3
-    {:ok, fragments} = FileShredder.fragment(file_name, n, @password)
+    {:ok, fragments} = FileShredder.fragment(file_name, n, @password, @out_dir)
     assert n == length(fragments)
     clean_up(@frag_dir)
   end
   test "reassemble when n < filesize / 2", context do
     file_name = context[:small_file]
     n = 3
-    FileShredder.fragment(file_name, n, @password)
+    FileShredder.fragment(file_name, n, @password, @out_dir)
     assert n == FileShredder.reassemble(@frag_dir, @password, @done_dir) |> length()
     assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
@@ -67,14 +68,14 @@ defmodule FileShredderTest do
     clean_up(@frag_dir)
     file_name = context[:small_file]
     n = div(Utils.File.size(file_name), 2)
-    {:ok, fragments} = FileShredder.fragment(file_name, n, @password)
+    {:ok, fragments} = FileShredder.fragment(file_name, n, @password, @out_dir)
     assert n == length(fragments)
     clean_up(@frag_dir)
   end
   test "reassemble when n == filesize / 2", context do
     file_name = context[:small_file]
     n = div(Utils.File.size(file_name), 2)
-    FileShredder.fragment(file_name, n, @password)
+    FileShredder.fragment(file_name, n, @password, @out_dir)
     assert n == FileShredder.reassemble(@frag_dir, @password, @done_dir) |> length()
     assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
@@ -85,14 +86,14 @@ defmodule FileShredderTest do
     clean_up(@frag_dir)
     file_name = context[:small_file]
     n = div(Utils.File.size(file_name),2) + 1
-    {:ok, fragments} = FileShredder.fragment(file_name, n, @password)
+    {:ok, fragments} = FileShredder.fragment(file_name, n, @password, @out_dir)
     assert n == length(fragments)
     clean_up(@frag_dir)
   end
   test "reassemble when n > filesize / 2", context do
     file_name = context[:small_file]
     n = div(Utils.File.size(file_name),2) + 1
-    FileShredder.fragment(file_name, n, @password)
+    FileShredder.fragment(file_name, n, @password, @out_dir)
     assert n == FileShredder.reassemble(@frag_dir, @password, @done_dir) |> length()
     assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
@@ -103,14 +104,14 @@ defmodule FileShredderTest do
     clean_up(@frag_dir) 
     file_name = context[:small_file]
     n = Utils.File.size(file_name)
-    {:ok, fragments} = FileShredder.fragment(file_name, n, @password)
+    {:ok, fragments} = FileShredder.fragment(file_name, n, @password, @out_dir)
     assert n == length(fragments)
     clean_up(@frag_dir)
   end
   test "reassemble when n == filesize", context do
     file_name = context[:small_file]
     n = Utils.File.size(file_name)
-    FileShredder.fragment(file_name, n, @password)
+    FileShredder.fragment(file_name, n, @password, @out_dir)
     assert n == FileShredder.reassemble(@frag_dir, @password, @done_dir) |> length()
     assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
@@ -121,14 +122,14 @@ defmodule FileShredderTest do
     clean_up(@frag_dir)
     file_name = context[:small_file]
     n = Utils.File.size(file_name) + 1
-    {:ok, fragments} = FileShredder.fragment(file_name, n, @password)
+    {:ok, fragments} = FileShredder.fragment(file_name, n, @password, @out_dir)
     assert n == length(fragments)
     clean_up(@frag_dir)
   end
   test "reassemble when n > filesize", context do
     file_name = context[:small_file]
     n = Utils.File.size(file_name) + 1
-    FileShredder.fragment(file_name, n, @password)
+    FileShredder.fragment(file_name, n, @password, @out_dir)
     assert n == FileShredder.reassemble(@frag_dir, @password, @done_dir) |> length()
     assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
@@ -139,7 +140,7 @@ defmodule FileShredderTest do
     clean_up(@frag_dir)
     file_name = context[:medium_file]
     n = 1
-    assert :error == FileShredder.fragment(file_name, n, @password)
+    assert :error == FileShredder.fragment(file_name, n, @password, @out_dir)
     clean_up(@frag_dir)
   end
 
