@@ -5,14 +5,6 @@ defmodule Utils.File do
     size
   end
 
-  def read(fpath) do
-    File.open!(fpath, [:read, :binary])
-  end
-
-  def write(fpath, content) do
-    File.write!(fpath, content, [:binary])
-  end
-
   def seek_read(file, start_pos, seg_size) do
     {:ok, _pos} = :file.position(file, start_pos)
     {:ok, content} = :file.read(file, seg_size)
@@ -48,12 +40,26 @@ defmodule Utils.File do
     dif != ""
   end
 
+  def form_dirpath(path) do
+    # no way to pattern match the end of a string in Elixir
+    # https://stackoverflow.com/questions/32448423/pattern-match-on-end-of-a-string-binary-argument#comment52766593_32451767
+
+    # alternative to nested condition blocks
+    dpath = fn {true, _}      -> path
+               {false, true}  -> path <> "/"
+               {false, false} -> Path.dirname(path) <> "/"
+            end
+
+    {String.ends_with?(path, "/"), File.dir?(path)}
+    |> dpath.()
+  end
+
   def parse_keyfile(fpath) do
     File.read!(fpath) |> String.trim()
   end
 
   def gen_frag_path(seq_hash, dirpath) do
-    Path.dirname(dirpath) <> "/" <> Base.encode16(seq_hash)  <> ".frg"
+    form_dirpath(dirpath) <> Base.encode16(seq_hash) <> ".frg"
   end
 
 end

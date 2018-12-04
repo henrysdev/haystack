@@ -3,13 +3,13 @@ defmodule FileShredderTest do
   doctest FileShredder
 
   @small_file "debug/in/small_file"
-  @small_file_size 50 # 50 bytes
+  @small_file_size 200 # 200 bytes
 
   @medium_file "debug/in/medium_file"
   @medium_file_size 1_073_741_824  # 1 GB
 
   @large_file "debug/in/large_file"
-  @large_file_size 10_737_418_240  # 10 GB
+  @large_file_size 5_737_418_240  # 5 GB
 
   @frag_dir "debug/out/*.frg"
   @password "pword"

@@ -20,7 +20,7 @@ defmodule FileShredder.MixProject do
   end
 
   defp escript_config do
-    [main_module: FileShredder.CLI]
+    [main_module: CLI]
   end
 
   # Run "mix help deps" to learn about dependencies.
