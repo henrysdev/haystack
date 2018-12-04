@@ -1,7 +1,7 @@
-defmodule FileShredder.Fragmentor do
+defmodule SafeSplit.Fragmentor do
 
   @moduledoc """
-  Documentation for FileShredder.
+  Documentation for SafeSplit.
   """
 
   @doc """
@@ -9,7 +9,7 @@ defmodule FileShredder.Fragmentor do
 
   ## Examples
 
-      iex> FileShredder.hello()
+      iex> SafeSplit.hello()
       :world
 
   """
@@ -20,7 +20,7 @@ defmodule FileShredder.Fragmentor do
     file_size = Utils.File.size(in_fpath)
 
     chunk_size = (Float.ceil(file_size/count) |> trunc())
-    frag_size = chunk_size + FileShredder.Fragmentor.Fields.get_bytes_count()
+    frag_size = chunk_size + SafeSplit.Fragmentor.Fields.get_bytes_count()
     
     {:ok, file_info_pid} = State.Map.start_link(
       %{
@@ -57,19 +57,19 @@ defmodule FileShredder.Fragmentor do
     Utils.File.create(frag_path, frag_size)
 
     # Fields
-    file_name_field = FileShredder.Fragmentor.Fields.file_name(file_name, hashkey)
-    pl_length_field = FileShredder.Fragmentor.Fields.pl_length(file_size, chunk_size, hashkey, read_pos)
-    file_size_field = FileShredder.Fragmentor.Fields.file_size(file_size, hashkey)
+    file_name_field = SafeSplit.Fragmentor.Fields.file_name(file_name, hashkey)
+    pl_length_field = SafeSplit.Fragmentor.Fields.pl_length(file_size, chunk_size, hashkey, read_pos)
+    file_size_field = SafeSplit.Fragmentor.Fields.file_size(file_size, hashkey)
 
     # Payload
-    encr_pl = FileShredder.Fragmentor.Payload.extract(in_fpath, read_pos, hashkey, chunk_size, file_size)
+    encr_pl = SafeSplit.Fragmentor.Payload.extract(in_fpath, read_pos, hashkey, chunk_size, file_size)
 
     # write payload to fragment file
     frag_file = File.open!(frag_path, [:raw, :read, :write])
     Utils.File.seek_write(frag_file, 0, encr_pl)
 
     # HMAC
-    hmac = FileShredder.Fragmentor.HMAC.generate(frag_file, chunk_size, file_name_field, file_size_field, pl_length_field, seq_id, hashkey)
+    hmac = SafeSplit.Fragmentor.HMAC.generate(frag_file, chunk_size, file_name_field, file_size_field, pl_length_field, seq_id, hashkey)
 
     # Write fragment data to frag file
     fragment = [

@@ -1,4 +1,4 @@
-defmodule FileShredder.Fragmentor.Fields do
+defmodule SafeSplit.Fragmentor.Fields do
   @fname_buf_size 96
   @fsize_buf_size 32
   @pl_length_buf_size 32

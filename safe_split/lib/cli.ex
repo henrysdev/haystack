@@ -29,13 +29,13 @@ defmodule CLI do
   defp map_params(opts, :fragment) do
     # validate that all necessary params are not nil before calling function!
     case opts[:keyfile] do
-      nil -> FileShredder.fragment(
+      nil -> SafeSplit.fragment(
         opts[:in],
         opts[:count],
         password_get("Enter the password to encrypt with: "),
         opts[:out]
       )
-      _  -> FileShredder.fragment(
+      _  -> SafeSplit.fragment(
         opts[:in],
         opts[:count],
         opts[:keyfile] |> Utils.File.parse_keyfile(),
@@ -47,12 +47,12 @@ defmodule CLI do
   defp map_params(opts, :reassemble) do
     # validate that all necessary params are not nil before calling function!
     case opts[:keyfile] do
-      nil -> FileShredder.reassemble(
+      nil -> SafeSplit.reassemble(
         opts[:in],
         password_get("Enter the password to decrypt with: "),
         opts[:out]
       )
-      _  -> FileShredder.reassemble(
+      _  -> SafeSplit.reassemble(
         opts[:in],
         opts[:keyfile] |> Utils.File.parse_keyfile(),
         opts[:out]
