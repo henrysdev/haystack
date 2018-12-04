@@ -3,7 +3,7 @@ defmodule SafeSplit.MixProject do
 
   def project do
     [
-      app: :file_shredder,
+      app: :safe_split,
       version: "0.1.0",
       elixir: "~> 1.7",
       escript: escript_config(),
