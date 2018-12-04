@@ -1,9 +1,19 @@
 # SafeSplit
 
-SafeSplit is a commandline utility for fragmenting files to be distributed across 
-multiple machines for security purposes. 
+SafeSplit is a commandline utility for fragmenting and reassembling files for 
+security purposes.
 
 ## Installation
+This project can be installed by running the following commands from the top level 
+of the project directory  
+```
+mix escript.build
+```  
+```
+export PATH=$PATH:<path/to/this/directory/safe_split>
+```
+
+<!-- ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed
 by adding `file_shredder` to your list of dependencies in `mix.exs`:
@@ -14,7 +24,7 @@ def deps do
     {:file_shredder, "~> 0.1.0"}
   ]
 end
-```
+``` -->
 
 ## Usage
 ### Fragmentation
