@@ -1,4 +1,4 @@
-defmodule FileShredder.MixProject do
+defmodule SafeSplit.MixProject do
   use Mix.Project
 
   def project do

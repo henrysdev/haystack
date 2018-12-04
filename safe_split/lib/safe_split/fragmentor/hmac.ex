@@ -1,4 +1,4 @@
-defmodule FileShredder.Fragmentor.HMAC do
+defmodule SafeSplit.Fragmentor.HMAC do
   
   def generate(frag_file, chunk_size, encr_file_name, encr_file_size, encr_pl_length, seq_id, hashkey) do
     hmac = [

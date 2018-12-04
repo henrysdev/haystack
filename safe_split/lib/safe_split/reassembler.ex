@@ -1,7 +1,7 @@
-defmodule FileShredder.Reassembler do
+defmodule SafeSplit.Reassembler do
 
   @moduledoc """
-  Documentation for FileShredder.
+  Documentation for SafeSplit.
   """
 
   @doc """
@@ -9,7 +9,7 @@ defmodule FileShredder.Reassembler do
 
   ## Examples
 
-      iex> FileShredder.hello()
+      iex> SafeSplit.hello()
       :world
 
   """
@@ -47,16 +47,16 @@ defmodule FileShredder.Reassembler do
     init_seq_hash = Utils.Crypto.gen_hash([hashkey, to_string(init_seq_id)])
     init_frag_path = Utils.File.gen_frag_path(init_seq_hash, in_dpath)
     frag_size = Utils.File.size(init_frag_path)
-    seekpos_pid = FileShredder.Reassembler.Fields.build_seek_map(frag_size)
+    seekpos_pid = SafeSplit.Reassembler.Fields.build_seek_map(frag_size)
 
     %{
       :file_name => file_name,
       :file_size => file_size,
       :pl_length => pl_length,
     } = init_frag_path
-    |> FileShredder.Reassembler.HMAC.authenticate(init_seq_id, hashkey)
-    |> FileShredder.Reassembler.Fields.deserialize_fields(seekpos_pid)
-    |> FileShredder.Reassembler.Fields.decrypt_fields(hashkey)
+    |> SafeSplit.Reassembler.HMAC.authenticate(init_seq_id, hashkey)
+    |> SafeSplit.Reassembler.Fields.deserialize_fields(seekpos_pid)
+    |> SafeSplit.Reassembler.Fields.decrypt_fields(hashkey)
     |> Map.update!(:file_size, &String.to_integer(&1))
     |> Map.update!(:pl_length, &String.to_integer(&1))
 
@@ -92,8 +92,8 @@ defmodule FileShredder.Reassembler do
     write_pos = seq_id * pl_length
 
     payload = frag_path
-    |> FileShredder.Reassembler.HMAC.authenticate(seq_id, hashkey)
-    |> FileShredder.Reassembler.Payload.extract(seekpos_pid, hashkey)
+    |> SafeSplit.Reassembler.HMAC.authenticate(seq_id, hashkey)
+    |> SafeSplit.Reassembler.Payload.extract(seekpos_pid, hashkey)
     |> Utils.Crypto.decrypt(hashkey, :aes_ctr)
 
     Utils.File.form_dirpath(out_dir) <> file_name

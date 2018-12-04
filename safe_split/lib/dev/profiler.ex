@@ -5,7 +5,7 @@ import ExProf.Macro
   @doc "analyze with profile macro"
   def analyze_fragmentor(fpath \\ "debug/in/abc.txt", n \\ 10, pword \\ "pword", out \\ "debug/out/") do
     profile do
-      FileShredder.fragment(fpath, n, pword, out)
+      SafeSplit.fragment(fpath, n, pword, out)
       IO.puts "message\n"
     end
   end
@@ -13,7 +13,7 @@ import ExProf.Macro
   @doc "analyze with profile macro"
   def analyze_reassembler(dirpath \\ "debug/out/*.frg", pword \\ "pword", out \\ "debug/out") do
     profile do
-      FileShredder.reassemble(dirpath, pword, out)
+      SafeSplit.reassemble(dirpath, pword, out)
       IO.puts "message\n"
     end
   end

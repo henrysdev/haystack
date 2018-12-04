@@ -1,4 +1,4 @@
-defmodule FileShredder.Fragmentor.Payload do
+defmodule SafeSplit.Fragmentor.Payload do
   
   def extract(in_fpath, read_pos, hashkey, chunk_size, file_size) when read_pos < file_size do
     File.open!(in_fpath, [:raw, :read], fn file -> 

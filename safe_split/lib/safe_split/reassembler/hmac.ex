@@ -1,4 +1,4 @@
-defmodule FileShredder.Reassembler.HMAC do
+defmodule SafeSplit.Reassembler.HMAC do
   @hmac_size 32
   
   def authenticate(frag_path, seq_id, hashkey) do

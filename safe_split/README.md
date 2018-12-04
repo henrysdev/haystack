@@ -1,4 +1,4 @@
-# FileShredder
+# SafeSplit
 
 **TODO: Add description**
 
