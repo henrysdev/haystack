@@ -23,7 +23,7 @@ defmodule Haystack.Fragmentor do
   Generates necessary instructions for fragmentation then delegates fragmentation 
   work to pool of workers to execute the building of fragments in parallel.
   """
-  def fragment(in_fpath, count, password, out_dpath, save_orig \\ false) when count > 1 do
+  def fragment(in_fpath, count, password, out_dpath, save_orig) when count > 1 do
     hashkey = Utils.Crypto.gen_key(password)
     file_name = Path.basename(in_fpath)
     file_size = Utils.File.size(in_fpath)
