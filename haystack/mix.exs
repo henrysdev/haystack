@@ -1,4 +1,4 @@
-defmodule SafeSplit.MixProject do
+defmodule Haystack.MixProject do
   use Mix.Project
 
   def project do
@@ -20,7 +20,10 @@ defmodule SafeSplit.MixProject do
   end
 
   defp escript_config do
-    [main_module: CLI]
+    [
+      main_module: CLI,
+      name: "haystack"
+    ]
   end
 
   # Run "mix help deps" to learn about dependencies.

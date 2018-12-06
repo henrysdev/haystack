@@ -1,4 +1,7 @@
 defmodule State.Map do
+  @moduledoc """
+  State.Map is a module for persisting state in the form of a agent map.
+  """
 
   def start_link(map) do
     Agent.start_link(fn -> map end)

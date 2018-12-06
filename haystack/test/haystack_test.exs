@@ -1,6 +1,6 @@
-defmodule SafeSplitTest do
+defmodule HaystackTest do
   use ExUnit.Case
-  doctest SafeSplit
+  doctest Haystack
 
   @small_file "debug/in/small_file"
   @small_file_size 200 # 200 bytes
@@ -50,15 +50,15 @@ defmodule SafeSplitTest do
     clean_up(@frag_dir)
     file_name = context[:small_file]
     n = 3
-    {:ok, fragments} = SafeSplit.fragment(file_name, n, @password, @out_dir)
+    {:ok, fragments} = Haystack.fragment(file_name, n, @password, @out_dir)
     assert n == length(fragments)
     clean_up(@frag_dir)
   end
   test "reassemble when n < filesize / 2", context do
     file_name = context[:small_file]
     n = 3
-    SafeSplit.fragment(file_name, n, @password, @out_dir)
-    assert n == SafeSplit.reassemble(@frag_dir, @password, @done_dir) |> length()
+    Haystack.fragment(file_name, n, @password, @out_dir, true)
+    assert n == Haystack.reassemble(@frag_dir, @password, @done_dir) |> length()
     assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
 
@@ -68,15 +68,15 @@ defmodule SafeSplitTest do
     clean_up(@frag_dir)
     file_name = context[:small_file]
     n = div(Utils.File.size(file_name), 2)
-    {:ok, fragments} = SafeSplit.fragment(file_name, n, @password, @out_dir)
+    {:ok, fragments} = Haystack.fragment(file_name, n, @password, @out_dir)
     assert n == length(fragments)
     clean_up(@frag_dir)
   end
   test "reassemble when n == filesize / 2", context do
     file_name = context[:small_file]
     n = div(Utils.File.size(file_name), 2)
-    SafeSplit.fragment(file_name, n, @password, @out_dir)
-    assert n == SafeSplit.reassemble(@frag_dir, @password, @done_dir) |> length()
+    Haystack.fragment(file_name, n, @password, @out_dir, true)
+    assert n == Haystack.reassemble(@frag_dir, @password, @done_dir) |> length()
     assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
 
@@ -86,15 +86,15 @@ defmodule SafeSplitTest do
     clean_up(@frag_dir)
     file_name = context[:small_file]
     n = div(Utils.File.size(file_name),2) + 1
-    {:ok, fragments} = SafeSplit.fragment(file_name, n, @password, @out_dir)
+    {:ok, fragments} = Haystack.fragment(file_name, n, @password, @out_dir)
     assert n == length(fragments)
     clean_up(@frag_dir)
   end
   test "reassemble when n > filesize / 2", context do
     file_name = context[:small_file]
     n = div(Utils.File.size(file_name),2) + 1
-    SafeSplit.fragment(file_name, n, @password, @out_dir)
-    assert n == SafeSplit.reassemble(@frag_dir, @password, @done_dir) |> length()
+    Haystack.fragment(file_name, n, @password, @out_dir, true)
+    assert n == Haystack.reassemble(@frag_dir, @password, @done_dir) |> length()
     assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
 
@@ -104,15 +104,15 @@ defmodule SafeSplitTest do
     clean_up(@frag_dir) 
     file_name = context[:small_file]
     n = Utils.File.size(file_name)
-    {:ok, fragments} = SafeSplit.fragment(file_name, n, @password, @out_dir)
+    {:ok, fragments} = Haystack.fragment(file_name, n, @password, @out_dir)
     assert n == length(fragments)
     clean_up(@frag_dir)
   end
   test "reassemble when n == filesize", context do
     file_name = context[:small_file]
     n = Utils.File.size(file_name)
-    SafeSplit.fragment(file_name, n, @password, @out_dir)
-    assert n == SafeSplit.reassemble(@frag_dir, @password, @done_dir) |> length()
+    Haystack.fragment(file_name, n, @password, @out_dir, true)
+    assert n == Haystack.reassemble(@frag_dir, @password, @done_dir) |> length()
     assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
 
@@ -122,15 +122,15 @@ defmodule SafeSplitTest do
     clean_up(@frag_dir)
     file_name = context[:small_file]
     n = Utils.File.size(file_name) + 1
-    {:ok, fragments} = SafeSplit.fragment(file_name, n, @password, @out_dir)
+    {:ok, fragments} = Haystack.fragment(file_name, n, @password, @out_dir)
     assert n == length(fragments)
     clean_up(@frag_dir)
   end
   test "reassemble when n > filesize", context do
     file_name = context[:small_file]
     n = Utils.File.size(file_name) + 1
-    SafeSplit.fragment(file_name, n, @password, @out_dir)
-    assert n == SafeSplit.reassemble(@frag_dir, @password, @done_dir) |> length()
+    Haystack.fragment(file_name, n, @password, @out_dir, true)
+    assert n == Haystack.reassemble(@frag_dir, @password, @done_dir) |> length()
     assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
 
@@ -140,7 +140,7 @@ defmodule SafeSplitTest do
     clean_up(@frag_dir)
     file_name = context[:medium_file]
     n = 1
-    assert :error == SafeSplit.fragment(file_name, n, @password, @out_dir)
+    assert :error == Haystack.fragment(file_name, n, @password, @out_dir)
     clean_up(@frag_dir)
   end
 
