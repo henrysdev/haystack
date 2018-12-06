@@ -12,7 +12,7 @@ defmodule SafeSplit do
       #iex> SafeSplit.fragment("path/to/secret_file", 20, "secretword", "destination/for/fragment_files/")
 
   """
-  defdelegate fragment(filepath, n, password, outdir), to: SafeSplit.Fragmentor
+  defdelegate fragment(filepath, n, password, outdir, save_orig \\ false), to: SafeSplit.Fragmentor
 
   @doc """
   Reassembles a file from a collection of fragments files.

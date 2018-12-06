@@ -31,12 +31,14 @@ defmodule CLI do
       count: :integer, 
       keyfile: :string, 
       out: :string, 
+      save_orig: :boolean,
     ]
     aliases = [
       i: :in, 
       c: :count, 
       k: :keyfile, 
       o: :out, 
+      s: :save_orig,
     ]
     parse = OptionParser.parse(argv, switches: switches, aliases: aliases)
     case parse do
@@ -56,13 +58,15 @@ defmodule CLI do
         opts[:in],
         opts[:count],
         password_get("Enter the password to encrypt with: "),
-        opts[:out]
+        opts[:out],
+        opts[:save_orig]
       )
       _  -> SafeSplit.fragment(
         opts[:in],
         opts[:count],
         opts[:keyfile] |> Utils.File.parse_keyfile(),
-        opts[:out]
+        opts[:out],
+        opts[:save_orig]
       )
     end
   end
@@ -117,10 +121,12 @@ defmodule CLI do
       Fragmentation
       fragment --in <string> --count <integer> --keyfile <string> --out <string>
       fragment --in <string> --count <integer> --out <string>
+      fragment --in <string> --count <integer> --out <string> --save_orig <true boolean flag>
       
       Reassembly
       reassemble --in <string> --keyfile <path/to/keyfile> --out <string>
       reassemble --in <string> --out <string>
+      reassemble --in <string> --out <string> --save_orig <true boolean flag>
     
     [ Parameters ]
       --in | -i
@@ -131,6 +137,8 @@ defmodule CLI do
         path to a file containing the plaintext password to be used for encryption (for fragmentation) or decryption(for reassembly).
       --out | -o
         path to the output directory where fragments (for fragmentation) or the original file (for reassembly) will be located.
+      --save_orig | -s
+        (optional) flag that if set, will not delete the original file after fragmentation.
     """ |> IO.puts()
   end
 

@@ -57,7 +57,7 @@ defmodule SafeSplitTest do
   test "reassemble when n < filesize / 2", context do
     file_name = context[:small_file]
     n = 3
-    SafeSplit.fragment(file_name, n, @password, @out_dir)
+    SafeSplit.fragment(file_name, n, @password, @out_dir, true)
     assert n == SafeSplit.reassemble(@frag_dir, @password, @done_dir) |> length()
     assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
@@ -75,7 +75,7 @@ defmodule SafeSplitTest do
   test "reassemble when n == filesize / 2", context do
     file_name = context[:small_file]
     n = div(Utils.File.size(file_name), 2)
-    SafeSplit.fragment(file_name, n, @password, @out_dir)
+    SafeSplit.fragment(file_name, n, @password, @out_dir, true)
     assert n == SafeSplit.reassemble(@frag_dir, @password, @done_dir) |> length()
     assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
@@ -93,7 +93,7 @@ defmodule SafeSplitTest do
   test "reassemble when n > filesize / 2", context do
     file_name = context[:small_file]
     n = div(Utils.File.size(file_name),2) + 1
-    SafeSplit.fragment(file_name, n, @password, @out_dir)
+    SafeSplit.fragment(file_name, n, @password, @out_dir, true)
     assert n == SafeSplit.reassemble(@frag_dir, @password, @done_dir) |> length()
     assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
@@ -111,7 +111,7 @@ defmodule SafeSplitTest do
   test "reassemble when n == filesize", context do
     file_name = context[:small_file]
     n = Utils.File.size(file_name)
-    SafeSplit.fragment(file_name, n, @password, @out_dir)
+    SafeSplit.fragment(file_name, n, @password, @out_dir, true)
     assert n == SafeSplit.reassemble(@frag_dir, @password, @done_dir) |> length()
     assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end
@@ -129,7 +129,7 @@ defmodule SafeSplitTest do
   test "reassemble when n > filesize", context do
     file_name = context[:small_file]
     n = Utils.File.size(file_name) + 1
-    SafeSplit.fragment(file_name, n, @password, @out_dir)
+    SafeSplit.fragment(file_name, n, @password, @out_dir, true)
     assert n == SafeSplit.reassemble(@frag_dir, @password, @done_dir) |> length()
     assert false == Utils.File.diff?(file_name, @done_dir <> Path.basename(file_name))
   end

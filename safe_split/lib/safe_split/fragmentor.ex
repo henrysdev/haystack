@@ -23,7 +23,7 @@ defmodule SafeSplit.Fragmentor do
   Generates necessary instructions for fragmentation then delegates fragmentation 
   work to pool of workers to execute the building of fragments in parallel.
   """
-  def fragment(in_fpath, count, password, out_dpath) when count > 1 do
+  def fragment(in_fpath, count, password, out_dpath, save_orig \\ false) when count > 1 do
     hashkey = Utils.Crypto.gen_key(password)
     file_name = Path.basename(in_fpath)
     file_size = Utils.File.size(in_fpath)
@@ -47,9 +47,12 @@ defmodule SafeSplit.Fragmentor do
     #|> Enum.map(&finish_frag(&1, file_info_pid))
     |> Utils.Parallel.pooled_map(&finish_frag(&1, file_info_pid))
 
+    if length(frag_paths) == count and save_orig == false do
+      Utils.File.delete(in_fpath)
+    end
     {:ok, frag_paths}
   end
-  def fragment(_, _, _, _), do: :error
+  def fragment(_, _, _, _, _), do: :error
 
   # Builds a fragment from the given parameters and writes fragment file to disk. 
   # Can be safely called asynchronously.
@@ -89,9 +92,7 @@ defmodule SafeSplit.Fragmentor do
       pl_length_field, 
       hmac,
     ]
-    
     Utils.File.seek_write(frag_file, chunk_size, fragment)
-
     File.close frag_file
   end
 

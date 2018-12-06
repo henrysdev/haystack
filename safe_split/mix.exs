@@ -20,7 +20,10 @@ defmodule SafeSplit.MixProject do
   end
 
   defp escript_config do
-    [main_module: CLI]
+    [
+      main_module: CLI,
+      name: "safesplit"
+    ]
   end
 
   # Run "mix help deps" to learn about dependencies.
