@@ -1,6 +1,6 @@
-# SafeSplit
+# Haystack
 
-SafeSplit is a small command-line utility for splitting up sensitive files into a user-determined number of indistinguishble, cryptographically secure fragments.
+Haystack is a small command-line utility for splitting up sensitive files into a user-determined number of indistinguishble, cryptographically secure fragments.
 
 ## Installation
 After cloning this repository, navigate to the top level of the project directory and run the following commands. 

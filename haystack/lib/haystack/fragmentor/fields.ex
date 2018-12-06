@@ -1,6 +1,6 @@
-defmodule SafeSplit.Fragmentor.Fields do
+defmodule Haystack.Fragmentor.Fields do
   @moduledoc """
-  The SafeSplit.Fragmentor.Fields module is responsible for handling all 
+  The Haystack.Fragmentor.Fields module is responsible for handling all 
   functions pertaining to fields during fragmentation.
   """
 

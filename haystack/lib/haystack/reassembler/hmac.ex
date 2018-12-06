@@ -1,7 +1,7 @@
-defmodule SafeSplit.Reassembler.HMAC do
+defmodule Haystack.Reassembler.HMAC do
   
   @moduledoc """
-  The SafeSplit.Reassembler.HMAC module is responsible for handling all 
+  The Haystack.Reassembler.HMAC module is responsible for handling all 
   HMAC-related functions needed during reassembly.
   """
 

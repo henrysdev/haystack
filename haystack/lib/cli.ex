@@ -1,6 +1,6 @@
 defmodule CLI do
   @moduledoc """
-  CLI is a module for interacting with SafeSplit through the commandline. 
+  CLI is a module for interacting with Haystack through the commandline. 
   [ Usage ]
     Fragmentation
     fragment --in <string> --count <integer> --keyfile <string> --out <string>
@@ -54,14 +54,14 @@ defmodule CLI do
   defp map_params(opts, :fragment) do
     # TODO validate that all necessary params are not nil before calling function!
     case opts[:keyfile] do
-      nil -> SafeSplit.fragment(
+      nil -> Haystack.fragment(
         opts[:in],
         opts[:count],
         password_get("Enter the password to encrypt with: "),
         opts[:out],
         opts[:save_orig]
       )
-      _  -> SafeSplit.fragment(
+      _  -> Haystack.fragment(
         opts[:in],
         opts[:count],
         opts[:keyfile] |> Utils.File.parse_keyfile(),
@@ -73,12 +73,12 @@ defmodule CLI do
   defp map_params(opts, :reassemble) do
     # TODO validate that all necessary params are not nil before calling function!
     case opts[:keyfile] do
-      nil -> SafeSplit.reassemble(
+      nil -> Haystack.reassemble(
         opts[:in],
         password_get("Enter the password to decrypt with: "),
         opts[:out]
       )
-      _  -> SafeSplit.reassemble(
+      _  -> Haystack.reassemble(
         opts[:in],
         opts[:keyfile] |> Utils.File.parse_keyfile(),
         opts[:out]

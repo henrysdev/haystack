@@ -1,6 +1,6 @@
-defmodule SafeSplit.Fragmentor.Payload do
+defmodule Haystack.Fragmentor.Payload do
   @moduledoc """
-  The SafeSplit.Fragmentor.Payload module is responsible for handling all 
+  The Haystack.Fragmentor.Payload module is responsible for handling all 
   functions pertaining to payloads during fragmentation.
   """
   

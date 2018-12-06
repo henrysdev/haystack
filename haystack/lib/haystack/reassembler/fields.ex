@@ -1,6 +1,6 @@
-defmodule SafeSplit.Reassembler.Fields do
+defmodule Haystack.Reassembler.Fields do
   @moduledoc """
-  The SafeSplit.Reassembler.Fields module is responsible for handling all 
+  The Haystack.Reassembler.Fields module is responsible for handling all 
   fields-related functions needed during reassembly.
   """
   @fname_buf_size 96

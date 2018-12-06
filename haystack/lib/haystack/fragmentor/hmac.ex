@@ -1,6 +1,6 @@
-defmodule SafeSplit.Fragmentor.HMAC do
+defmodule Haystack.Fragmentor.HMAC do
   @moduledoc """
-  The SafeSplit.Fragmentor.HMAC module is responsible for handling all functions 
+  The Haystack.Fragmentor.HMAC module is responsible for handling all functions 
   pertaining to HMACs during fragmentation.
   """
   
