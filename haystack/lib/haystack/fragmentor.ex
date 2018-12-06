@@ -4,7 +4,7 @@ defmodule Haystack.Fragmentor do
   of an input file into a variable number of output fragment files. 
 
   Anatomy of a Fragment File
-  ___________________
+   __________________
   |                  |
   | Payload          |
   |__________________|
