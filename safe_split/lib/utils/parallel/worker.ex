@@ -1,4 +1,7 @@
 defmodule Utils.Parallel.Worker do
+  @moduledoc """
+  Utils.Parallel.Worker is a module that represents a threadpool worker.
+  """
 
   use GenServer
 

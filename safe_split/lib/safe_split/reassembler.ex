@@ -1,19 +1,13 @@
 defmodule SafeSplit.Reassembler do
-
   @moduledoc """
-  Documentation for SafeSplit.
+  SafeSplit.Reassembler is a module responsible for orchestrating the reassembly 
+  of a file from a collection of fragment files.
   """
 
   @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> SafeSplit.hello()
-      :world
-
+  Reassembles a file from a collection of fragment files existing in a given 
+  directory.
   """
-
   def reassemble(in_dpath, password, out_dir) do
     hashkey = Utils.Crypto.gen_key(password)
 
@@ -42,6 +36,10 @@ defmodule SafeSplit.Reassembler do
     |> Utils.Parallel.pooled_map(&frag_reassem(&1, file_info_pid, seekpos_pid))
   end
 
+  @doc """
+  Returns extracted common file info from first fragment read into memory during 
+  reassembly,
+  """
   defp initial_frag_reassem(in_dpath, hashkey) do
     init_seq_id = 0
     init_seq_hash = Utils.Crypto.gen_hash([hashkey, to_string(init_seq_id)])
@@ -70,6 +68,9 @@ defmodule SafeSplit.Reassembler do
 
   end
 
+  @doc """
+  Returns a list of found fragment files in a given directory for a given password.
+  """
   defp iter_frag_seq(seq_id, hashkey, in_dpath, acc) do
     seq_hash  = Utils.Crypto.gen_hash([hashkey, to_string(seq_id)])
     frag_path = seq_hash |> Utils.File.gen_frag_path(in_dpath)
@@ -79,10 +80,17 @@ defmodule SafeSplit.Reassembler do
     end
   end
 
+  @doc """
+  Returns a boolean pertaining to if a given fragment is a fake/dummy fragment.
+  """
   defp dummy_frag?({_frag_path, seq_id, _seq_hash}, file_size, pl_length) do
     pl_length * seq_id >= file_size
   end
 
+  @doc """
+  Reassembles a fragment's worth of information into the target file. Can be 
+  safely called asynchronously.
+  """
   defp frag_reassem({{frag_path, seq_id, _seq_hash}, false}, file_info_pid, seekpos_pid) do
     hashkey   = State.Map.get(file_info_pid, :hashkey)
     file_name = State.Map.get(file_info_pid, :file_name)

@@ -1,19 +1,28 @@
 defmodule SafeSplit.Fragmentor do
-
   @moduledoc """
-  Documentation for SafeSplit.
+  The SafeSplit.Fragmentor module is responsible for orchestrating the fragmenting 
+  of an input file into a variable number of output fragment files. 
+
+  Anatomy of a Fragment File
+  ___________________
+  |                  |
+  | Payload          |
+  |__________________|
+  |                  |
+  | Fields           |
+  | - payload_size   |
+  | - file_name      |
+  | - file_size      |
+  |__________________|
+  |                  |
+  | HMAC             |
+  |__________________|
   """
 
   @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> SafeSplit.hello()
-      :world
-
+  Generates necessary instructions for fragmentation then delegates fragmentation 
+  work to pool of workers to execute the building of fragments in parallel.
   """
-
   def fragment(in_fpath, count, password, out_dpath) when count > 1 do
     hashkey = Utils.Crypto.gen_key(password)
     file_name = Path.basename(in_fpath)
@@ -42,6 +51,10 @@ defmodule SafeSplit.Fragmentor do
   end
   def fragment(_, _, _, _), do: :error
 
+  @doc """
+  Builds a fragment from the given parameters and writes fragment file to disk. 
+  Can be safely called asynchronously.
+  """
   defp finish_frag({ seq_id, read_pos }, file_info_pid) do
     hashkey    = State.Map.get(file_info_pid, :hashkey)
     file_name  = State.Map.get(file_info_pid, :file_name)
