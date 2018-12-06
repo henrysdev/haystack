@@ -47,7 +47,7 @@ defmodule Haystack.Fragmentor do
     #|> Enum.map(&finish_frag(&1, file_info_pid))
     |> Utils.Parallel.pooled_map(&finish_frag(&1, file_info_pid))
 
-    if length(frag_paths) == count and save_orig == false do
+    if length(frag_paths) == count and save_orig == nil do
       Utils.File.delete(in_fpath)
     end
     {:ok, frag_paths}
