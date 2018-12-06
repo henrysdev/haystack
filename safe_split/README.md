@@ -1,9 +1,9 @@
 # SafeSplit
 
-SafeSplit is a small command-line utility for splitting up sensitive files into encrypted fragments. 
+SafeSplit is a small command-line utility for splitting up sensitive files into a user-determined number of indistinguishble, cryptographically secure fragments.
 
 ## Installation
-To install, navigate to the top level project directory and run the following commands. 
+After cloning this repository, navigate to the top level of the project directory and run the following commands. 
 ```elixir
 mix escript.build
 ``` 
