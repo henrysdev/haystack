@@ -19,10 +19,8 @@ defmodule SafeSplit.Reassembler.HMAC do
     |> check_hmac(frag_size)
   end
 
-  @doc """
-  Returns a generated cryptographic hash of what the HMAC should look like for 
-  a given fragment.
-  """
+  # Returns a generated cryptographic hash of what the HMAC should look like for 
+  # a given fragment.
   defp gen_correct_hmac(fragment, seq_id, frag_size, hashkey) do
     hmac = [
       Utils.File.seek_read(fragment, 0, frag_size - @hmac_size),
@@ -33,10 +31,7 @@ defmodule SafeSplit.Reassembler.HMAC do
     {fragment, hmac}
   end
 
-  @doc """
-  Returns a tuple containing a boolean pertaining to if the fragment's HMAC is 
-  valid.
-  """
+  # Returns a tuple containing a boolean pertaining to if the fragment's HMAC is valid.
   defp check_hmac({fragment, correct_hmac}, frag_size) do
     valid? = Utils.File.seek_read(fragment, frag_size - @hmac_size, @hmac_size) == correct_hmac
     {fragment, valid?, frag_size}

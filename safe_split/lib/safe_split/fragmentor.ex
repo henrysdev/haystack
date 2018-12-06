@@ -51,10 +51,8 @@ defmodule SafeSplit.Fragmentor do
   end
   def fragment(_, _, _, _), do: :error
 
-  @doc """
-  Builds a fragment from the given parameters and writes fragment file to disk. 
-  Can be safely called asynchronously.
-  """
+  # Builds a fragment from the given parameters and writes fragment file to disk. 
+  # Can be safely called asynchronously.
   defp finish_frag({ seq_id, read_pos }, file_info_pid) do
     hashkey    = State.Map.get(file_info_pid, :hashkey)
     file_name  = State.Map.get(file_info_pid, :file_name)

@@ -25,9 +25,6 @@ defmodule CLI do
     parse_args(argv)
   end
 
-  @doc """
-  Parses command line arguments.
-  """
   defp parse_args(argv) do
     switches = [
       in: :string, 
@@ -50,12 +47,10 @@ defmodule CLI do
     end
   end
 
-  @doc """
-  Maps given fragmentation parameters to the correct handler for the given 
-  password entry method.
-  """
+  # Maps given parameters to the correct handler for the given 
+  # password entry method.
   defp map_params(opts, :fragment) do
-    # validate that all necessary params are not nil before calling function!
+    # TODO validate that all necessary params are not nil before calling function!
     case opts[:keyfile] do
       nil -> SafeSplit.fragment(
         opts[:in],
@@ -71,13 +66,8 @@ defmodule CLI do
       )
     end
   end
-
-  @doc """
-  Maps given reassembly parameters to the correct handler for the given 
-  password entry method.
-  """
   defp map_params(opts, :reassemble) do
-    # validate that all necessary params are not nil before calling function!
+    # TODO validate that all necessary params are not nil before calling function!
     case opts[:keyfile] do
       nil -> SafeSplit.reassemble(
         opts[:in],
@@ -92,11 +82,9 @@ defmodule CLI do
     end
   end
 
+  # Returns user-entered password from (hidden) stdin.
   # https://github.com/hexpm/hex/blob/5dd8ae020dc4c31bc662e490c79221423fc5d9f6/lib/mix/tasks/hex/util.ex#L46-L74
-  @doc """
-  Returns user-entered password from (hidden) stdin.
-  """
-  def password_get(prompt) do
+  defp password_get(prompt) do
     pid = spawn_link fn -> loop(prompt) end
     ref = make_ref()
 
