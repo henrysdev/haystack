@@ -25,11 +25,11 @@ mix escript.install
 &nbsp;&nbsp;(Optional) flag to prevent deletion of original file upon fragmentation.
   
 #### Examples
-Split file into 100 fragments.
+Split file into 100 fragments (you will be prompted for an encryption password).
 ```
 haystack fragment --in path/to/orig_file --count 100 --out path/to/frags_dir/
 ```
-Create 100 fragments, read encryption password from a keyfile, and don't delete original file.
+Split file into 100 fragments, read encryption password from a keyfile, and don't delete original file.
 ```
 haystack fragment -i path/to/orig_file -c 100 -o path/to/frags_dir/ --keyfile path/to/keyfile --save_orig
 ```
@@ -43,10 +43,10 @@ haystack fragment -i path/to/orig_file -c 100 -o path/to/frags_dir/ --keyfile pa
 &nbsp;&nbsp;Path to the output location where the original file will be reassembled.
 
 #### Examples
-Reassemble using a password prompt for decryption.
+Reassemble original file using a password prompt for decryption.
 ```
 haystack reassemble --in path/to/frags_dir/ --out path/to/reassem_dir/
 ```
-Reassemble using a keyfile for decryption.
+Reassemble original file using a keyfile for decryption.
 ```
 haystack reassemble --in path/to/frags_dir/ --keyfile path/to/keyfile --out path/to/reassem_dir/

@@ -36,7 +36,7 @@ defmodule Utils.Crypto do
   Returns an encrypted version of the given data in AES-CBC mode using the given key and 
   padded to the given size.
   """
-  def encrypt(data, key, :aes_cbc, pad_size) do
+  def encrypt(data, key, :aes_cbc, pad_size \\ @aes_block_size) do
     :crypto.block_encrypt(:aes_cbc, key, @zero_iv, pad(data, pad_size))
   end
 

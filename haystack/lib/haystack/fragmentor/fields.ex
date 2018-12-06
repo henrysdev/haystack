@@ -20,7 +20,7 @@ defmodule Haystack.Fragmentor.Fields do
   Return the pre-processed/encrypted fragment field value for payload size
   """
   def pl_length(file_size, chunk_size, hashkey, read_pos) do    
-    pl_length = max(0, (chunk_size - max(0, (read_pos + chunk_size) - file_size )))
+    max(0, (chunk_size - max(0, (read_pos + chunk_size) - file_size )))
     |> Integer.to_string()
     |> Utils.Crypto.encrypt(hashkey, :aes_cbc, @pl_length_buf_size)
   end
