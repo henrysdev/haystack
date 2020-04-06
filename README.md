@@ -1,6 +1,6 @@
 # Haystack
 
-Haystack is a command-line utility for breaking up sensitive files into user-determined quantities of indistinguishble, cryptographically secure fragments.
+Haystack is a command-line utility for breaking up sensitive files into user-determined quantities of indistinguishble fragments.
 
 ## Installation
 After cloning this repository, navigate to the top level of the project directory and run the following commands. 
