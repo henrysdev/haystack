@@ -3,13 +3,17 @@
 Haystack is a command-line utility for breaking up sensitive files into user-determined quantities of indistinguishble fragments.
 
 ## Installation
-After cloning this repository, navigate to the top level of the project directory and run the following commands. 
+After cloning this repository, navigate to the root of the mix project directory and run the following commands.
+```elixir
+mix deps.get
+``` 
 ```elixir
 mix escript.build
 ``` 
 ```elixir
 mix escript.install
 ```
+If you have not run elixir CLI programs before, you may also be prompted to append ~/$HOME/.mix/escripts to your $PATH
 
 ## Usage
 ### Fragmentation
